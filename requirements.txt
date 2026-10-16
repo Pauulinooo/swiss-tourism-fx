@@ -6,5 +6,5 @@ seaborn>=0.13
 statsmodels>=0.14
 scikit-learn>=1.4
 lightgbm>=4.3
-jupyter>=1.0
+ipykernel>=6.29
 openpyxl>=3.1
