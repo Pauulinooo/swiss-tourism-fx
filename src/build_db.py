@@ -45,6 +45,7 @@ SUMMARIES = {
         PIVOT (SELECT geo, origin, avg_stay_nights FROM length_of_stay WHERE NOT is_covid)
         ON origin USING ROUND(MEDIAN(avg_stay_nights), 2) ORDER BY geo""",
     "canton_segment": """
+        -- winter_peak > 0.40, balanced 0.30-0.40, summer_or_flat < 0.30 (Dec-Mar share, 2010-2019)
         SELECT geo, ROUND(winter_share, 3) AS winter_share, segment
         FROM canton_segment ORDER BY winter_share DESC""",
 }
@@ -114,6 +115,9 @@ def quality_checks(con: duckdb.DuckDBPyConnection) -> None:
     n_cantons = scalar(con, "SELECT COUNT(DISTINCT geo) FROM tourism WHERE level = 'canton'")
     assert scalar(con, "SELECT COUNT(*) FROM canton_segment") == n_cantons, \
         "canton_segment: not one row per canton"
+    bad = scalar(con, """SELECT COUNT(*) FROM canton_segment
+                         WHERE segment NOT IN ('winter_peak', 'balanced', 'summer_or_flat')""")
+    assert bad == 0, "canton_segment: unexpected segment label"
 
     print("OK - no negative values, shares sum to 100%, stays >= 1 night, one segment per canton")
 
