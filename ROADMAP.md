@@ -13,15 +13,15 @@ Rules for the whole project:
 
 ---
 
-## Sprint 0 — Data foundation ✅ mostly done
+## Sprint 0 — Data foundation ✅ done
 
 - [x] Repo structure (`data/`, `src/`, `sql/`, `notebooks/`, `reports/`)
 - [x] Raw files renamed and documented in `data/README.md`
 - [x] `src/load_data.py`: tidy long tables + check that monthly rows add up to annual totals
-- [ ] `git init`, `.gitignore`, `requirements.txt`, first push to GitHub
-- [ ] Re-download the canton table **with Arrivals** (needed for average length of stay)
-- [ ] Download SNB FX **from 2004** (12-month lags from 2005)
-- [ ] Decide the 4th mid-range commune (Tujetsch is not in the file yet)
+- [x] `git init`, `.gitignore`, `requirements.txt`, first push to GitHub
+- [x] ~~Re-download the canton table with Arrivals~~ — dropped: average length of stay at commune level only
+- [x] ~~Download SNB FX from 2004~~ — dropped: FX from Aug 2005, 12-month lags start mid-2006
+- [x] 4th mid-range commune: **Tujetsch** (pair for Klosters), added to the commune file
 
 **Deliverable:** `python src/load_data.py` rebuilds everything from raw files.
 
@@ -40,7 +40,7 @@ Rules for the whole project:
 - [ ] Elasticity of nights to FX by canton × market (log-log regression, seasonal controls, covid excluded)
 - [ ] Event study around **15 Jan 2015**: nights indexed to 100 in 2014, EUR markets vs domestic
 - [ ] Luxury vs mid-range pairs (commune level): **Germany vs Switzerland only**, see note below
-- [ ] Arrivals vs length of stay: fewer guests, or shorter stays?
+- [ ] Arrivals vs length of stay (commune level): fewer guests, or shorter stays?
 
 **Deliverable:** vulnerability ranking by canton + the 2015 event chart.
 
@@ -67,6 +67,8 @@ Rules for the whole project:
 
 ## Notes from the data checks
 
-- **Commune pairs available from 2013:** St. Moritz–Scuol, Zermatt–Saas-Grund, Saanen (Gstaad)–Lenk. Klosters has no counterpart yet.
+- **Commune pairs available from 2013:** St. Moritz–Scuol, Klosters–Tujetsch, Zermatt–Saas-Grund, Saanen (Gstaad)–Lenk. Surses, Crans-Montana and Val de Bagnes are excluded (municipal mergers, no data before 2016/2017/2021).
+- **FX starts Aug 2005**, so 12-month lag features are available from mid-2006 only.
+- **Canton table has overnight stays only**: average length of stay is a commune-level analysis.
 - **Small markets are noise at commune level.** Share of months with fewer than 50 nights: China 75–98% in mid-range resorts, US 46–96%, Italy up to 92%. Germany stays below 18% everywhere. → Commune layer compares **German vs Swiss guests** only; other markets are analysed at canton level.
 - **Known limitation:** Swiss guests are not a clean control group (a strong franc also makes holidays abroad cheaper for them). Present the 2015 comparison as descriptive evidence, not causal proof.
