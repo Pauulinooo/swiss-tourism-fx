@@ -27,9 +27,9 @@ Rules for the whole project:
 
 ## Sprint 1 — SQL layer + EDA
 
-- [ ] Load processed tables into **DuckDB** (or BigQuery, same SQL)
-- [ ] `sql/` views: year-over-year change, market share by geography, seasonal profile, average length of stay
-- [ ] Segment cantons with data: snow / mixed / urban (winter share of nights)
+- [x] Load processed tables into **DuckDB** (or BigQuery, same SQL) — `src/build_db.py`
+- [x] `sql/` views: year-over-year change, market share by geography, seasonal profile, average length of stay
+- [x] Segment cantons with data: snow / mixed / urban (winter share of nights) — `sql/06_canton_segment.sql`
 - [ ] `notebooks/01_eda.ipynb`: 5–6 charts, each with a one-line takeaway
 
 **Deliverable:** 3 written hypotheses, backed by charts.
