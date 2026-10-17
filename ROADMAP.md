@@ -30,7 +30,7 @@ Rules for the whole project:
 - [x] Load processed tables into **DuckDB** (or BigQuery, same SQL) — `src/build_db.py`
 - [x] `sql/` views: year-over-year change, market share by geography, seasonal profile, average length of stay
 - [x] Segment cantons by seasonality: winter_peak / balanced / summer_or_flat (winter share of nights) — `sql/06_canton_segment.sql`
-- [ ] `notebooks/01_eda.ipynb`: 5–6 charts, each with a one-line takeaway
+- [x] `notebooks/01_eda.ipynb`: 6 charts, each with a one-line takeaway, + 3 hypotheses for Sprint 2
 
 **Deliverable:** 3 written hypotheses, backed by charts.
 
