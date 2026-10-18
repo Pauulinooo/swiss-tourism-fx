@@ -28,9 +28,9 @@ SLOTS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#625
 ORIGIN_COLORS = dict(zip(
     ["Switzerland", "Germany", "France", "Italy", "United Kingdom", "United States", "China"],
     SLOTS))
-SEGMENT_COLORS = {"winter_peak": SLOTS[0], "balanced": SLOTS[1], "summer_or_flat": SLOTS[2]}
 
 INK, INK_SOFT, GRID, SURFACE = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
+GREY = "#c4c3bd"          # context lines that should recede behind the highlighted ones
 
 
 def connect() -> duckdb.DuckDBPyConnection:
