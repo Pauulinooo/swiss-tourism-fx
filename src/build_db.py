@@ -34,7 +34,7 @@ SUMMARIES = {
         WHERE level = 'canton' AND year(date) = 2015
         GROUP BY origin ORDER BY median_yoy_pct_2015""",
     "market_share": """
-        PIVOT (SELECT geo, origin, ROUND(share_pct, 1) AS share
+        PIVOT (SELECT geo, origin, ROUND(share_of_tracked_pct, 1) AS share
                FROM market_share WHERE level = 'canton' AND year = 2019)
         ON origin USING first(share) ORDER BY geo""",
     "seasonal_profile": """
@@ -84,7 +84,8 @@ def quality_checks(con: duckdb.DuckDBPyConnection) -> None:
         "tourism.value": "SELECT COUNT(*) FROM tourism WHERE value < 0",
         "fx.chf_per_unit": "SELECT COUNT(*) FROM fx WHERE chf_per_unit <= 0",
         "monthly_nights.nights": "SELECT COUNT(*) FROM monthly_nights WHERE nights < 0",
-        "market_share.share_pct": "SELECT COUNT(*) FROM market_share WHERE share_pct < 0",
+        "market_share.share_of_tracked_pct":
+            "SELECT COUNT(*) FROM market_share WHERE share_of_tracked_pct < 0",
         "seasonal_profile.avg_share_pct":
             "SELECT COUNT(*) FROM seasonal_profile WHERE avg_share_pct < 0",
         "length_of_stay.arrivals": "SELECT COUNT(*) FROM length_of_stay WHERE arrivals < 0",
@@ -97,7 +98,7 @@ def quality_checks(con: duckdb.DuckDBPyConnection) -> None:
     # Shares must add up to 100% per geo-year (market share) and per geo (seasonal profile)
     off = scalar(con, f"""
         SELECT COUNT(*) FROM (
-            SELECT SUM(share_pct) AS s FROM market_share GROUP BY level, geo, year)
+            SELECT SUM(share_of_tracked_pct) AS s FROM market_share GROUP BY level, geo, year)
         WHERE abs(s - 100) > {TOL}""")
     assert off == 0, f"market_share: {off} geo-years do not sum to 100%"
     off = scalar(con, f"""

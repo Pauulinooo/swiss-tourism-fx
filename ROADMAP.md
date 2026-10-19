@@ -30,7 +30,7 @@ Rules for the whole project:
 - [x] Load processed tables into **DuckDB** (or BigQuery, same SQL) — `src/build_db.py`
 - [x] `sql/` views: year-over-year change, market share by geography, seasonal profile, average length of stay
 - [x] Segment cantons by seasonality: winter_peak / balanced / summer_or_flat (winter share of nights) — `sql/06_canton_segment.sql`
-- [ ] `notebooks/01_eda.ipynb`: 5–6 charts, each with a one-line takeaway
+- [x] `notebooks/01_eda.ipynb`: 6 charts, each with a one-line takeaway, + 3 hypotheses for Sprint 2
 
 **Deliverable:** 3 written hypotheses, backed by charts.
 
@@ -41,6 +41,9 @@ Rules for the whole project:
 - [ ] Event study around **15 Jan 2015**: nights indexed to 100 in 2014, EUR markets vs domestic
 - [ ] Luxury vs mid-range pairs (commune level): **Germany vs Switzerland only**, see note below
 - [ ] Arrivals vs length of stay (commune level): fewer guests, or shorter stays?
+- [ ] Measure the 2015 drop **relative to the pre-2015 trend** (German nights fell 2012–2014 with EUR/CHF fixed at 1.20), and test for **asymmetry** (losses fast, recovery slow)
+- [ ] Change point detection on German nights (e.g. `ruptures`): let the data find when the trend broke, then compare with the 2008–09 crisis, the 2011 franc surge, the Jan 2015 floor removal and the 2014–2016 Airbnb boom
+- [ ] *Extension (optional):* substitution towards Austria (Statistik Austria, German nights) and towards holiday flats (BFS PASTA, from 2017)
 
 **Deliverable:** vulnerability ranking by canton + the 2015 event chart.
 
@@ -72,3 +75,4 @@ Rules for the whole project:
 - **Canton table has overnight stays only**: average length of stay is a commune-level analysis.
 - **Small markets are noise at commune level.** Share of months with fewer than 50 nights: China 75–98% in mid-range resorts, US 46–96%, Italy up to 92%. Germany stays below 18% everywhere. → Commune layer compares **German vs Swiss guests** only; other markets are analysed at canton level.
 - **Known limitation:** Swiss guests are not a clean control group (a strong franc also makes holidays abroad cheaper for them). Present the 2015 comparison as descriptive evidence, not causal proof.
+- **Known limitation:** HESTA covers hotels only. A shift of German guests to holiday flats or Airbnb would look like lost demand.
