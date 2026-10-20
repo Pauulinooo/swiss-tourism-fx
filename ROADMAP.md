@@ -68,7 +68,10 @@ Part B:
 - [ ] LightGBM with lags of nights, regime/covid indicators and FX (spec from notebook 02)
 - [ ] Rolling-origin validation (`TimeSeriesSplit`), change points re-detected inside each training window
 - [ ] Error by horizon, overall and in **peak-season months** (each series' 3 highest months in `seasonal_profile`, 2013–2019)
-- [ ] Key table: error **with vs without FX** per series; asymmetric FX split (appreciation vs depreciation) for h = 1–5, symmetric for h = 6, each compared with the symmetric alternative
+- [ ] Main model: **ONE symmetric FX feature per horizon** (YoY log change of the market's currency vs CHF, lag h)
+- [ ] Key table: error **with vs without FX** per series
+- [ ] One experiment: appreciation/depreciation split (where the Wald test flagged it, h = 1–5), kept only if it lowers forecast error
+- [ ] Validate out of sample the FX lag choice and the symmetry rule (both were selected on the full sample in notebook 02)
 
 **Deliverable:** a 1–6-month forecast per series, and where the franc improves it.
 
