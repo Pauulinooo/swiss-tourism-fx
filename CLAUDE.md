@@ -28,10 +28,12 @@ See `ROADMAP.md` for sprints and `data/README.md` for sources and data quirks. R
 - Forecast target: 49 series (7 cantons x 7 origin markets) + the total of each of the 8 paired resorts. Horizon 1–6 months.
 - Time-based validation only (`TimeSeriesSplit` / rolling origin). Never a random train/test split.
 - Always report a seasonal-naive baseline (same month last year) next to any model.
-- FX features must be lagged **≥ 6 months** (known at the forecast origin for every horizon up to 6), or enter as scenarios.
+- Direct strategy, one model per horizon h (1–6): FX features must be lagged **≥ h months** (known at the forecast origin).
+  FX after the forecast origin enters only as scenarios, never as a model input.
 - Anything estimated from the data (change points, regimes) is re-estimated inside each training window: no look-ahead.
-- Report MAPE per series, with and without FX features, overall and in peak-season months.
-- Descriptive language for FX effects ("linked to"), never causal. Every number in notebook text comes from a printed output.
+- Report MAPE per series, with and without FX features, overall and in peak-season months
+  (peak season = each series' 3 highest months by average share of annual nights, 2013–2019, from `seasonal_profile`).
+- Descriptive language for FX effects ("linked to"), never causal. Every number in notebook text comes from a printed output, or is asserted against the computed results (e.g. a "Summary check" cell).
 - Out of scope: overbooking and nightly pricing (need daily, hotel-level data we do not have).
 
 ## Code style

@@ -7,8 +7,9 @@
 **Forecast set-up (fixed):**
 - **Series:** 7 cantons × 7 origin markets (49) + the total of each of the 8 paired resorts (4 luxury, 4 mid-range).
 - **Horizon:** 1 to 6 months ahead.
-- **FX:** features lagged **at least 6 months** (known at the forecast origin for every horizon), or used as scenarios.
+- **FX:** direct strategy, one model per horizon h: FX features use **lags ≥ h** (rates known at the forecast origin); FX after the origin enters only as scenarios.
 - **Error:** MAPE overall **and in peak-season months** (when seasonal staff is hired), always next to the seasonal-naive baseline.
+- **Peak season (confirmed):** each series' 3 highest months by average share of annual nights, 2013–2019 (`seasonal_profile`).
 
 **Headline to fill at the end (top of README):**
 > Six months ahead, the model forecasts hotel nights with A% error (B% in peak-season months), against C% for "same month last year". Adding the exchange rate changes the error from A% to A'%; it matters most for [canton × market]. A 10% stronger franc is linked to X% fewer German nights about 6 months later.
@@ -52,7 +53,7 @@ Part A (`notebooks/02_fx_effect.ipynb`):
 - [x] Feature spec for Sprint 3
 
 Part B:
-- [ ] FX link by canton × market (same YoY design, lags ≥ 6, own currency per market): which series should get an FX feature
+- [ ] FX link by canton × market (same YoY design, lags ≥ h per horizon, own currency per market): which series should get an FX feature
 - [ ] Luxury vs mid-range pairs (commune level): **Germany vs Switzerland only**, see note below
 - [ ] Arrivals vs length of stay (commune level): fewer guests, or shorter stays?
 - [ ] *Extension (optional):* substitution towards Austria (Statistik Austria, German nights) and towards holiday flats (BFS PASTA, from 2017)
@@ -63,11 +64,11 @@ Part B:
 
 - [ ] Series: 49 canton × origin + 8 paired-resort totals; horizon 1–6 months
 - [ ] Baseline: same month last year (seasonal naive)
-- [ ] SARIMAX with and without FX as exogenous variable (FX lagged ≥ 6 months)
+- [ ] SARIMAX with and without FX as exogenous variable (direct strategy: FX lagged ≥ h for horizon h)
 - [ ] LightGBM with lags of nights, regime/covid indicators and FX (spec from notebook 02)
 - [ ] Rolling-origin validation (`TimeSeriesSplit`), change points re-detected inside each training window
-- [ ] Error by horizon, overall and in **peak-season months** (default: each series' 3 highest months in `seasonal_profile`, 2013–2019)
-- [ ] Key table: error **with vs without FX** per series; asymmetric FX split tested as an experiment
+- [ ] Error by horizon, overall and in **peak-season months** (each series' 3 highest months in `seasonal_profile`, 2013–2019)
+- [ ] Key table: error **with vs without FX** per series; asymmetric FX split (appreciation vs depreciation) for h = 1–5, symmetric for h = 6, each compared with the symmetric alternative
 
 **Deliverable:** a 1–6-month forecast per series, and where the franc improves it.
 
