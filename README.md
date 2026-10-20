@@ -1,8 +1,10 @@
 # The Strong Franc and Swiss Tourism
 
-> **Headline (to be written at the end):** A 10% stronger franc costs [canton] X% of its European overnight stays. Luxury resorts lose [less/more] than mid-range neighbours. Adding the exchange rate cuts forecast error from A% to B% MAPE.
+**Forecasts monthly hotel overnight stays by canton, origin market and resort type (luxury vs mid-range) six months ahead, so hotels can plan seasonal pricing and seasonal staffing, and quantifies how much the Swiss franc moves that forecast.**
 
-**Question:** How much does the appreciation of the Swiss franc explain the evolution of foreign hotel demand in 7 Swiss cantons and selected ski resorts, and does it improve demand forecasts?
+> **Headline (to be written at the end):** Six months ahead, the model forecasts hotel nights with A% error (B% in peak-season months), against C% for "same month last year". Adding the exchange rate changes the error from A% to A'%; it matters most for [canton × market]. A 10% stronger franc is linked to X% fewer German nights about 6 months later.
+
+**Question:** How well can monthly hotel nights be forecast 1–6 months ahead for 7 Swiss cantons × 7 origin markets and 8 paired ski resorts, and how much does the Swiss franc (the key explanatory variable) improve those forecasts?
 
 ## Data
 - Swiss Federal Statistical Office (BFS), HESTA hotel statistics: monthly arrivals and overnight stays by canton (2005–2026) and commune (2013–2026), by guest country of residence.
@@ -10,10 +12,23 @@
 
 Details and known data issues: [`data/README.md`](data/README.md).
 
+## Approach
+1. **SQL layer + EDA** (`sql/`, `notebooks/01_eda.ipynb`): demand trends, market mix, seasonality.
+2. **FX analysis → feature design** (`notebooks/02_fx_effect.ipynb`): trend regimes, which FX lags, symmetric or asymmetric effect.
+3. **Forecasting** (Sprint 3): seasonal-naive baseline vs models with and without FX; rolling-origin validation; error overall and in peak-season months.
+4. **Scenarios**: e.g. "EUR/CHF at 0.90 → nights by canton, next 6 months".
+
+## Limitations
+- HESTA covers hotels only: a shift of guests to holiday flats or Airbnb looks like lost demand.
+- FX effects are associations, not causal effects.
+- Overbooking and nightly pricing need daily, hotel-level data (cancellations, no-shows, capacity), which this project does not have. The forecast supports monthly planning (seasonal pricing levels, seasonal staffing), not revenue management.
+
 ## Reproduce
 ```bash
 pip install -r requirements.txt
 python src/load_data.py
+python src/build_db.py
+jupyter nbconvert --to notebook --execute --inplace notebooks/01_eda.ipynb notebooks/02_fx_effect.ipynb
 ```
 
 ## Status

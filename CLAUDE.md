@@ -1,9 +1,11 @@
 # CLAUDE.md — instructions for Claude Code in this repo
 
 ## Project
-Portfolio project (data analyst, target: Swiss job market). Question: how much does franc appreciation
-explain and help forecast hotel demand in Swiss cantons and resorts? See `ROADMAP.md` for sprints and
-`data/README.md` for sources and data quirks. Read both before starting any task.
+Portfolio project (data analyst, target: Swiss job market). Product: a forecast of monthly hotel
+overnight stays by canton, origin market and resort type (luxury vs mid-range), 1 to 6 months ahead,
+for seasonal pricing and seasonal staffing, with the Swiss franc as the key explanatory variable
+(how much it moves the forecast). FX analysis serves the forecast: it designs the features.
+See `ROADMAP.md` for sprints and `data/README.md` for sources and data quirks. Read both before starting any task.
 
 ## Repo layout
 - `data/raw/` — original downloads. **Never edit, rename or overwrite.**
@@ -18,14 +20,19 @@ explain and help forecast hotel demand in Swiss cantons and resorts? See `ROADMA
 - Tidy long format: one row = date × geo × origin × indicator. Columns: `date, geo, level, origin, indicator, value, currency`.
 - FX = CHF per 1 unit of foreign currency. A **falling** value means the franc **appreciates**.
 - Exclude Mar 2020 – Dec 2021 (covid) when estimating FX effects. Keep it in plots, shaded.
+  Year-over-year estimates also exclude 2022 (base months in covid): use `features.yoy_uses_covid`.
 - Commune level: compare **Germany vs Switzerland only** (other markets are too small, see ROADMAP notes).
 - Excluded origins: India (no FX series), United Arab Emirates (series starts 2011, tiny volume).
 
 ## Modelling rules
+- Forecast target: 49 series (7 cantons x 7 origin markets) + the total of each of the 8 paired resorts. Horizon 1–6 months.
 - Time-based validation only (`TimeSeriesSplit` / rolling origin). Never a random train/test split.
 - Always report a seasonal-naive baseline (same month last year) next to any model.
-- FX features must be lagged (≥1 month): the current month's rate is not known when forecasting.
-- Report MAPE per canton, with and without FX features.
+- FX features must be lagged **≥ 6 months** (known at the forecast origin for every horizon up to 6), or enter as scenarios.
+- Anything estimated from the data (change points, regimes) is re-estimated inside each training window: no look-ahead.
+- Report MAPE per series, with and without FX features, overall and in peak-season months.
+- Descriptive language for FX effects ("linked to"), never causal. Every number in notebook text comes from a printed output.
+- Out of scope: overbooking and nightly pricing (need daily, hotel-level data we do not have).
 
 ## Code style
 - Python 3.11+, pandas, pathlib. Functions with docstrings; comments explain *why*, not *what*.
