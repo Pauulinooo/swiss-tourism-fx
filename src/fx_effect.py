@@ -17,7 +17,9 @@ from features import assert_monthly, yoy_uses_covid
 # --- Change points ---------------------------------------------------------
 MIN_SEGMENT = 12            # months: a single odd month cannot create a regime
 PARAMS_PER_SEGMENT = 3      # level + slope + break date -> BIC-style penalty
-PATH_TOLERANCE = 0.05       # |gap| below 5% = "back to the pre-covid path"
+EDGE_MONTHS = 2 * MIN_SEGMENT   # breaks this close to either end are edge effects, not regimes
+LEVEL_TOLERANCE = 0.05      # |post-covid level vs 2016-2019| below 5% = "level recovered" (primary)
+PATH_TOLERANCE = 0.05       # |gap| below 5% = "back to the pre-covid path" (secondary, fragile)
 
 # --- FX regressions --------------------------------------------------------
 HAC_LAGS = 12               # YoY changes overlap for 12 months -> autocorrelated errors
@@ -70,6 +72,22 @@ def forced_breaks(y: pd.Series, n_max: int = 5) -> pd.Series:
     return pd.Series(out, name=y.name).rename_axis("n_breaks")
 
 
+def edge_breaks(y: pd.Series, breaks: list[pd.Timestamp]) -> list[pd.Timestamp]:
+    """Breaks within EDGE_MONTHS of the start or end of the series.
+
+    With a 12-month minimum regime, the first and last regimes are fitted on
+    very few points, so breaks there are labelled as edge effects and not read.
+    """
+    pos = {d: i for i, d in enumerate(y.index)}
+    return [b for b in breaks if pos[b] <= EDGE_MONTHS or pos[b] >= len(y) - EDGE_MONTHS]
+
+
+def level_jump(fit: pd.Series, b: pd.Timestamp) -> float:
+    """% change of the fitted trend at a break: new regime's first month vs old regime's last."""
+    i = fit.index.get_loc(b)
+    return float(100 * np.expm1(fit.iloc[i] - fit.iloc[i - 1]))
+
+
 def segment_table(y: pd.Series, breaks: list[pd.Timestamp]) -> tuple[pd.DataFrame, pd.Series]:
     """OLS level + slope per regime. Returns a summary table and the fitted trend line."""
     edges = [y.index[0], *breaks, y.index[-1] + pd.offsets.MonthBegin()]
@@ -87,11 +105,14 @@ def segment_table(y: pd.Series, breaks: list[pd.Timestamp]) -> tuple[pd.DataFram
 
 
 def post_covid_vs_path(y: pd.Series, breaks: list[pd.Timestamp]) -> dict:
-    """Compare the post-covid regime with 2016-2019 (level and slope).
+    """Compare the post-covid regime with 2016-2019.
 
     Post-covid regime = the last regime found by PELT if it starts in 2021 or
-    later; otherwise Jan 2023 onwards. The 2016-2019 trend is extrapolated over
-    that regime: an average gap within +/-5% = back to the pre-covid path.
+    later; otherwise Jan 2023 onwards.
+    Primary measure: LEVEL, mean of the post-covid regime vs mean of 2016-2019
+    (within +/-5% = level recovered).
+    Secondary measure, fragile: the 2016-2019 trend (4 years) extrapolated over
+    the post-covid regime (up to 7 years later); within +/-5% = on the old path.
     """
     start = breaks[-1] if breaks and breaks[-1] >= pd.Timestamp("2021-01-01") \
         else pd.Timestamp("2023-01-01")
@@ -104,15 +125,15 @@ def post_covid_vs_path(y: pd.Series, breaks: list[pd.Timestamp]) -> dict:
     gap = np.expm1(np.mean(y[post] - (ref_icpt + ref_slope * t[post])))
     level = np.expm1(y[post].mean() - y[ref].mean())
 
-    if abs(gap) < PATH_TOLERANCE:
-        verdict = "back to the pre-covid path"
-    else:
-        verdict = f"new normal, {'above' if gap > 0 else 'below'} the pre-covid path"
+    level_verdict = ("level recovered" if abs(level) < LEVEL_TOLERANCE
+                     else f"level {'above' if level > 0 else 'below'} 2016-2019")
+    path_verdict = ("on the 2016-2019 growth path" if abs(gap) < PATH_TOLERANCE
+                    else f"{'above' if gap > 0 else 'below'} the 2016-2019 growth path")
     return {"market": y.name, "post_covid_from": f"{start:%Y-%m}",
-            "level_vs_2016_19_pct": 100 * level,
+            "level_vs_2016_19_pct": 100 * level, "level_verdict": level_verdict,
             "slope_2016_19_pct_yr": 100 * np.expm1(ref_slope),
             "slope_post_covid_pct_yr": 100 * np.expm1(post_slope),
-            "gap_vs_2016_19_path_pct": 100 * gap, "verdict": verdict}
+            "gap_vs_2016_19_path_pct": 100 * gap, "path_verdict": path_verdict}
 
 
 # --- FX lag regressions ----------------------------------------------------
