@@ -1,13 +1,22 @@
-# Roadmap — Swiss tourism demand & the strong franc
+# Roadmap — Forecasting Swiss hotel demand, with the franc as key driver
 
-**Central question:** How much does franc appreciation explain the evolution of foreign hotel demand in Swiss cantons and resorts, and does adding the exchange rate improve demand forecasts?
+**Product:** forecasts monthly hotel overnight stays by canton, origin market and resort type (luxury vs mid-range) six months ahead, so hotels can plan seasonal pricing and seasonal staffing, and quantifies how much the Swiss franc moves that forecast.
+
+**Central question:** How well can monthly hotel nights be forecast 1–6 months ahead, and how much does the exchange rate improve that forecast?
+
+**Forecast set-up (fixed):**
+- **Series:** 7 cantons × 7 origin markets (49) + the total of each of the 8 paired resorts (4 luxury, 4 mid-range).
+- **Horizon:** 1 to 6 months ahead.
+- **FX:** direct strategy, one model per horizon h: FX features use **lags ≥ h** (rates known at the forecast origin); FX after the origin enters only as scenarios.
+- **Error:** MAPE overall **and in peak-season months** (when seasonal staff is hired), always next to the seasonal-naive baseline.
+- **Peak season (confirmed):** each series' 3 highest months by average share of annual nights, 2013–2019 (`seasonal_profile`).
 
 **Headline to fill at the end (top of README):**
-> A 10% stronger franc costs [canton] X% of its European overnight stays after N months. Luxury resorts lose [less/more] than mid-range neighbours. Adding the exchange rate reduces forecast error from A% to B% MAPE.
+> Six months ahead, the model forecasts hotel nights with A% error (B% in peak-season months), against C% for "same month last year". Adding the exchange rate changes the error from A% to A'%; it matters most for [canton × market]. A 10% stronger franc is linked to X% fewer German nights about 6 months later.
 
 Rules for the whole project:
 - Raw data in `data/raw/` is never edited. All cleaning is code (`src/`), so every number can be reproduced.
-- Covid (Mar 2020 – Dec 2021) is **excluded** when estimating FX effects; it is a supply shock, not a price shock.
+- Covid (Mar 2020 – Dec 2021) is **excluded** when estimating FX effects; it is a supply shock, not a price shock. Year-over-year estimates also exclude 2022 (its base months are covid months).
 - Validation is always time-based (train on the past, test on the future). Never a random split.
 - Every line in the repo must be explainable in an interview.
 
@@ -34,34 +43,44 @@ Rules for the whole project:
 
 **Deliverable:** 3 written hypotheses, backed by charts.
 
-## Sprint 2 — The franc effect (explanatory core)
+## Sprint 2 — FX analysis to design the forecast features
 
-- [ ] Features: monthly log change of each currency vs CHF, lags 0–12
-- [ ] Elasticity of nights to FX by canton × market (log-log regression, seasonal controls, covid excluded)
-- [ ] Event study around **15 Jan 2015**: nights indexed to 100 in 2014, EUR markets vs domestic
+Part A (`notebooks/02_fx_effect.ipynb`):
+- [x] Change point detection on German, Swiss and US nights (`ruptures`, full period + pre-covid sensitivity), compared with the 2008–09 crisis, the 2011 franc surge, the Jan 2015 floor removal and the 2014–2016 Airbnb boom
+- [x] Post-covid regime vs 2016–2019: new normal, or back to the pre-covid path?
+- [x] Which FX lags: YoY nights on YoY EUR/CHF, lags 0–12 and usable lags 6–12, Swiss nights as placebo
+- [x] **Asymmetry** test (appreciation vs depreciation, Wald test)
+- [x] Feature spec for Sprint 3
+
+Part B:
+- [ ] FX link by canton × market (same YoY design, lags ≥ h per horizon, own currency per market): which series should get an FX feature
 - [ ] Luxury vs mid-range pairs (commune level): **Germany vs Switzerland only**, see note below
 - [ ] Arrivals vs length of stay (commune level): fewer guests, or shorter stays?
-- [ ] Measure the 2015 drop **relative to the pre-2015 trend** (German nights fell 2012–2014 with EUR/CHF fixed at 1.20), and test for **asymmetry** (losses fast, recovery slow)
-- [ ] Change point detection on German nights (e.g. `ruptures`): let the data find when the trend broke, then compare with the 2008–09 crisis, the 2011 franc surge, the Jan 2015 floor removal and the 2014–2016 Airbnb boom
 - [ ] *Extension (optional):* substitution towards Austria (Statistik Austria, German nights) and towards holiday flats (BFS PASTA, from 2017)
 
-**Deliverable:** vulnerability ranking by canton + the 2015 event chart.
+**Deliverable:** feature spec for the forecast (regimes, FX lags, symmetric or not), backed by evidence.
 
-## Sprint 3 — Forecasting (ML)
+## Sprint 3 — Forecasting (main deliverable)
 
+- [ ] Series: 49 canton × origin + 8 paired-resort totals; horizon 1–6 months
 - [ ] Baseline: same month last year (seasonal naive)
-- [ ] SARIMAX with and without FX as exogenous variable
-- [ ] LightGBM with lags of nights and FX
-- [ ] Rolling-origin validation (`TimeSeriesSplit`, 12-month test windows), MAPE per canton
-- [ ] Key table: error **with vs without FX** per canton
+- [ ] SARIMAX with and without FX as exogenous variable (direct strategy: FX lagged ≥ h for horizon h)
+- [ ] LightGBM with lags of nights, regime/covid indicators and FX (spec from notebook 02)
+- [ ] Rolling-origin validation (`TimeSeriesSplit`), change points re-detected inside each training window
+- [ ] Error by horizon, overall and in **peak-season months** (each series' 3 highest months in `seasonal_profile`, 2013–2019)
+- [ ] Main model: **ONE symmetric FX feature per horizon** (YoY log change of the market's currency vs CHF, lag h)
+- [ ] Key table: error **with vs without FX** per series
+- [ ] One experiment: appreciation/depreciation split (where the Wald test flagged it, h = 1–5), kept only if it lowers forecast error
+- [ ] Validate out of sample the FX lag choice and the symmetry rule (both were selected on the full sample in notebook 02)
 
-**Deliverable:** does the franc help predict demand, and where?
+**Deliverable:** a 1–6-month forecast per series, and where the franc improves it.
 
 ## Sprint 4 — Scenarios, dashboard, story
 
-- [ ] Scenario simulator: "EUR/CHF at 0.90 → impact on nights by canton, next 12 months"
+- [ ] Scenario simulator: "EUR/CHF at 0.90 → impact on nights by canton, next 6 months"
 - [ ] Tableau Public dashboard: canton map with vulnerability index + scenario slider + 2015 event chart
 - [ ] README in English: headline, 3 charts, method, **limitations**
+- [ ] *Optional storytelling:* the 2015 drop relative to the 2012–2014 trend (actual vs projected, Germany vs Switzerland), moved here from Sprint 2
 - [ ] 2-minute interview pitch: problem → data → finding → decision → limitations
 
 **Deliverable:** public repo + dashboard link, ready for CV and LinkedIn.
@@ -76,3 +95,4 @@ Rules for the whole project:
 - **Small markets are noise at commune level.** Share of months with fewer than 50 nights: China 75–98% in mid-range resorts, US 46–96%, Italy up to 92%. Germany stays below 18% everywhere. → Commune layer compares **German vs Swiss guests** only; other markets are analysed at canton level.
 - **Known limitation:** Swiss guests are not a clean control group (a strong franc also makes holidays abroad cheaper for them). Present the 2015 comparison as descriptive evidence, not causal proof.
 - **Known limitation:** HESTA covers hotels only. A shift of German guests to holiday flats or Airbnb would look like lost demand.
+- **Out of scope:** overbooking and nightly pricing need daily, hotel-level data (cancellations, no-shows, capacity), which this project does not have.
