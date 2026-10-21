@@ -31,7 +31,8 @@ See `ROADMAP.md` for sprints and `data/README.md` for sources and data quirks. R
 - Direct strategy, one model per horizon h (1–6): FX features must be lagged **≥ h months** (known at the forecast origin).
   FX after the forecast origin enters only as scenarios, never as a model input.
 - Anything estimated from the data (change points, regimes) is re-estimated inside each training window: no look-ahead.
-- Report MAPE per series, with and without FX features, overall and in peak-season months
+- Main metric: **WAPE** (sum of absolute errors / sum of actuals), with and without FX features, overall and in peak-season months;
+  MAPE per series is secondary (it explodes on small, near-zero months)
   (peak season = each series' 3 highest months by average share of annual nights, 2013–2019, from `seasonal_profile`).
 - Descriptive language for FX effects ("linked to"), never causal. Every number in notebook text comes from a printed output, or is asserted against the computed results (e.g. a "Summary check" cell).
 - Out of scope: overbooking and nightly pricing (need daily, hotel-level data we do not have).
