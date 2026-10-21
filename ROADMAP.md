@@ -85,8 +85,12 @@ Part B (`src/run_experiments.py`, `notebooks/04_forecast_experiments.ipynb`):
 
 ## Sprint 4 — Scenarios, dashboard, story
 
-- [ ] Scenario simulator: "EUR/CHF at 0.90 → impact on nights by canton, next 6 months"
-- [ ] Tableau Public dashboard: canton map with vulnerability index + scenario slider + 2015 event chart
+Part A (`src/export_bq.py`, `docs/dashboard_guide.md`):
+- [x] Scenario table: franc moved -10%..+10% at the Jul 2026 origin (EUR only / all currencies), model with FX, next 6 months
+- [x] Export script for BigQuery (`swiss_tourism_fx`, europe-west6): nights, backtest forecasts, WAPE sums, FX scenarios; `--dry-run` checks
+- [ ] Upload to BigQuery (blocked: the account lacks `bigquery.datasets.create` on the project)
+- [x] Looker Studio build guide: demand history, forecast accuracy, FX scenario simulator
+- [ ] Build the Looker Studio dashboard by hand from the guide (replaces the Tableau Public plan)
 - [ ] README in English: headline, 3 charts, method, **limitations**
 - [ ] *Optional storytelling:* the 2015 drop relative to the 2012–2014 trend (actual vs projected, Germany vs Switzerland), moved here from Sprint 2
 - [ ] 2-minute interview pitch: problem → data → finding → decision → limitations
