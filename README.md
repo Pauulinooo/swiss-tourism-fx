@@ -29,8 +29,10 @@ Details and known data issues: [`data/README.md`](data/README.md).
 pip install -r requirements.txt
 python src/load_data.py
 python src/build_db.py
+python src/run_experiments.py --jobs 4   # ~1.5 h, cached for notebook 04
 jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 \
-  notebooks/01_eda.ipynb notebooks/02_fx_effect.ipynb notebooks/03_forecasting.ipynb
+  notebooks/01_eda.ipynb notebooks/02_fx_effect.ipynb notebooks/03_forecasting.ipynb \
+  notebooks/04_forecast_experiments.ipynb
 ```
 
 ## Status
