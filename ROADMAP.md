@@ -71,7 +71,10 @@ Part A (`src/forecast.py`, `notebooks/03_forecasting.ipynb`):
 - [x] Main model: **ONE symmetric FX feature per horizon** (YoY log change of the market's currency vs CHF, lag h)
 - [x] Key table: WAPE **with vs without FX** per series, by origin market and by canton/resort
 
-Part B:
+Part B (`src/run_experiments.py`, `notebooks/04_forecast_experiments.ipynb`):
+- [x] Shock backtests on the 49 canton × origin series: Jan 2015 – Dec 2016 and Sep 2011 – Dec 2012
+- [x] Noise floor: 20 circular shifts of FX (24+ months, all currencies together), plus Diebold–Mariano per origin market with Holm adjustment
+- [x] Simple combinations (naive + model) / 2, without and with FX, by horizon
 - [ ] SARIMAX with and without FX as exogenous variable (classical benchmark)
 - [ ] Regime indicators from change points re-detected inside each training window (part A uses calendar covid/post-covid indicators only)
 - [ ] One experiment: appreciation/depreciation split (where the Wald test flagged it, h = 1–5), kept only if it lowers forecast error
