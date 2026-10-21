@@ -11,8 +11,8 @@
 - **Error:** **WAPE** (sum of absolute errors / sum of actuals) overall **and in peak-season months** (when seasonal staff is hired), always next to the seasonal-naive baseline. MAPE per series is secondary: it explodes on small, near-zero months (resort off-season).
 - **Peak season (confirmed):** each series' 3 highest months by average share of annual nights, 2013–2019 (`seasonal_profile`).
 
-**Headline to fill at the end (top of README):**
-> Six months ahead, the model forecasts hotel nights with A% error (B% in peak-season months), against C% for "same month last year". Adding the exchange rate changes the error from A% to A'%; it matters most for [canton × market]. A 10% stronger franc is linked to X% fewer German nights about 6 months later.
+**Headline (numbers from notebook 04, Sprint 3B; final wording for the README at the end):**
+> Six months ahead, averaging "same month last year" with the model with FX forecasts hotel nights with 8.3% error (WAPE, post-covid 2023–2026), against 8.7% for "same month last year" alone. During the 2015–16 franc shock, the model with FX had 7.6% error against 8.8% (all horizons; 8.2% vs 8.8% at h = 6), a gain that beats a time-shifted FX placebo (p = 0.048). After covid the FX gain is inconclusive: it passes the pre-set rule narrowly (+0.16 points) but is not significant at 5% by the permutation p-value (0.095). In 2011–12, with EUR/CHF held near the 1.20 floor, there is no measurable FX gain.
 
 Rules for the whole project:
 - Raw data in `data/raw/` is never edited. All cleaning is code (`src/`), so every number can be reproduced.
