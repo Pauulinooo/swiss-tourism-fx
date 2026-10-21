@@ -8,7 +8,7 @@
 - **Series:** 7 cantons × 7 origin markets (49) + the total of each of the 8 paired resorts (4 luxury, 4 mid-range).
 - **Horizon:** 1 to 6 months ahead.
 - **FX:** direct strategy, one model per horizon h: FX features use **lags ≥ h** (rates known at the forecast origin); FX after the origin enters only as scenarios.
-- **Error:** MAPE overall **and in peak-season months** (when seasonal staff is hired), always next to the seasonal-naive baseline.
+- **Error:** **WAPE** (sum of absolute errors / sum of actuals) overall **and in peak-season months** (when seasonal staff is hired), always next to the seasonal-naive baseline. MAPE per series is secondary: it explodes on small, near-zero months (resort off-season).
 - **Peak season (confirmed):** each series' 3 highest months by average share of annual nights, 2013–2019 (`seasonal_profile`).
 
 **Headline to fill at the end (top of README):**
@@ -52,7 +52,7 @@ Part A (`notebooks/02_fx_effect.ipynb`):
 - [x] **Asymmetry** test (appreciation vs depreciation, Wald test)
 - [x] Feature spec for Sprint 3
 
-Part B:
+Part B *(optional, skipped for now; Sprint 3 went first)*:
 - [ ] FX link by canton × market (same YoY design, lags ≥ h per horizon, own currency per market): which series should get an FX feature
 - [ ] Luxury vs mid-range pairs (commune level): **Germany vs Switzerland only**, see note below
 - [ ] Arrivals vs length of stay (commune level): fewer guests, or shorter stays?
@@ -62,16 +62,21 @@ Part B:
 
 ## Sprint 3 — Forecasting (main deliverable)
 
-- [ ] Series: 49 canton × origin + 8 paired-resort totals; horizon 1–6 months
-- [ ] Baseline: same month last year (seasonal naive)
-- [ ] SARIMAX with and without FX as exogenous variable (direct strategy: FX lagged ≥ h for horizon h)
-- [ ] LightGBM with lags of nights, regime/covid indicators and FX (spec from notebook 02)
-- [ ] Rolling-origin validation (`TimeSeriesSplit`), change points re-detected inside each training window
-- [ ] Error by horizon, overall and in **peak-season months** (each series' 3 highest months in `seasonal_profile`, 2013–2019)
-- [ ] Main model: **ONE symmetric FX feature per horizon** (YoY log change of the market's currency vs CHF, lag h)
-- [ ] Key table: error **with vs without FX** per series
+Part A (`src/forecast.py`, `notebooks/03_forecasting.ipynb`):
+- [x] Series: 49 canton × origin + 8 paired-resort totals; horizon 1–6 months, direct strategy
+- [x] Baseline: same month last year (seasonal naive)
+- [x] Global gradient-boosting model per horizon (scikit-learn `HistGradientBoostingRegressor`; LightGBM switchable but not installable on the dev machine), target = seasonal log change, covid kept in training with indicators
+- [x] Rolling-origin validation: same 43 target months (Jan 2023 – Jul 2026) for every horizon, expanding training window, no look-ahead (asserted + scramble test)
+- [x] **WAPE** by horizon and model, overall and in **peak-season months** (each series' 3 highest months, 2013–2019); MAPE per series secondary
+- [x] Main model: **ONE symmetric FX feature per horizon** (YoY log change of the market's currency vs CHF, lag h)
+- [x] Key table: WAPE **with vs without FX** per series, by origin market and by canton/resort
+
+Part B:
+- [ ] SARIMAX with and without FX as exogenous variable (classical benchmark)
+- [ ] Regime indicators from change points re-detected inside each training window (part A uses calendar covid/post-covid indicators only)
 - [ ] One experiment: appreciation/depreciation split (where the Wald test flagged it, h = 1–5), kept only if it lowers forecast error
 - [ ] Validate out of sample the FX lag choice and the symmetry rule (both were selected on the full sample in notebook 02)
+- [ ] Prediction intervals (e.g. quantile loss) for staffing decisions
 
 **Deliverable:** a 1–6-month forecast per series, and where the franc improves it.
 

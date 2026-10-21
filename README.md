@@ -15,7 +15,8 @@ Details and known data issues: [`data/README.md`](data/README.md).
 ## Approach
 1. **SQL layer + EDA** (`sql/`, `notebooks/01_eda.ipynb`): demand trends, market mix, seasonality.
 2. **FX analysis → feature design** (`notebooks/02_fx_effect.ipynb`): trend regimes, which FX lags, symmetric or asymmetric effect.
-3. **Forecasting** (Sprint 3): seasonal-naive baseline vs models with and without FX; rolling-origin validation; error overall and in peak-season months.
+3. **Forecasting** (`notebooks/03_forecasting.ipynb`): seasonal-naive baseline vs a global gradient-boosting model per horizon, without and with FX; rolling-origin validation; WAPE overall, by origin market and in peak-season months.
+   Results use scikit-learn's `HistGradientBoostingRegressor`, because LightGBM could not be installed on the development machine (no `libomp` for macOS 14 on Intel). The backend is a parameter in `src/forecast.py` (`"lightgbm"` if it can be imported).
 4. **Scenarios**: e.g. "EUR/CHF at 0.90 → nights by canton, next 6 months".
 
 ## Limitations
@@ -28,7 +29,8 @@ Details and known data issues: [`data/README.md`](data/README.md).
 pip install -r requirements.txt
 python src/load_data.py
 python src/build_db.py
-jupyter nbconvert --to notebook --execute --inplace notebooks/01_eda.ipynb notebooks/02_fx_effect.ipynb
+jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 \
+  notebooks/01_eda.ipynb notebooks/02_fx_effect.ipynb notebooks/03_forecasting.ipynb
 ```
 
 ## Status
