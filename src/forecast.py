@@ -88,12 +88,13 @@ def load_fx_yoy(con) -> pd.DataFrame:
     return pd.concat(out, ignore_index=True).dropna()
 
 
-def peak_months(panel: pd.DataFrame) -> pd.DataFrame:
+def peak_months(panel: pd.DataFrame, years: tuple[int, int] = PEAK_YEARS) -> pd.DataFrame:
     """Each series' N_PEAK_MONTHS highest months by average share of annual nights, 2013-2019.
 
-    Only complete years count; the window ends before every forecast origin.
+    Only complete years count; the window must end before the test period
+    (2013-2019 for the post-covid test, 2005-2010 for the shock windows).
     """
-    p = panel[panel["date"].dt.year.between(*PEAK_YEARS)].copy()
+    p = panel[panel["date"].dt.year.between(*years)].copy()
     p["year"], p["month"] = p["date"].dt.year, p["date"].dt.month
     full = p.groupby(["series_id", "year"])["month"].transform("count") == 12
     p = p[full]
@@ -198,29 +199,43 @@ def fit_predict(feats: pd.DataFrame, origin: pd.Timestamp, use_fx: bool,
                  "actual", "base_nights"]].assign(forecast=np.clip(np.expm1(log_pred), 0, None))
 
 
-def backtest(panel: pd.DataFrame, fx_yoy: pd.DataFrame, backend: str = "sklearn") -> pd.DataFrame:
-    """Rolling origin: the same 43 target months for every horizon, origin = target - h.
+def backtest(panel: pd.DataFrame, fx_yoy: pd.DataFrame, backend: str = "sklearn",
+             targets: pd.DatetimeIndex | None = None, run_no_fx: bool = True,
+             run_fx: bool = True) -> pd.DataFrame:
+    """Rolling origin: the same target months for every horizon, origin = target - h.
+
+    Default targets: the post-covid test (Jan 2023 - Jul 2026, 43 months). Other
+    windows (e.g. the 2015 shock) pass their own `targets`; the panel passed in
+    defines which series are trained and evaluated.
 
     Returns one row per series x horizon x target month with the actual value and
     the forecasts of the seasonal-naive baseline and of the model without / with FX.
     """
-    targets = pd.date_range(TEST_START, TEST_END, freq="MS")
+    if targets is None:
+        targets = pd.date_range(TEST_START, TEST_END, freq="MS")
+    assert run_no_fx or run_fx
     out = []
     for h in HORIZONS:
         feats = build_features(panel, fx_yoy, h)
         for target in targets:
             origin = target - pd.DateOffset(months=h)
-            no_fx = fit_predict(feats, origin, use_fx=False, backend=backend)
-            with_fx = fit_predict(feats, origin, use_fx=True, backend=backend)
-            merged = no_fx.rename(columns={"forecast": "gb_no_fx"}).merge(
-                with_fx[["series_id", "forecast"]].rename(columns={"forecast": "gb_fx"}), on="series_id")
+            parts = []
+            if run_no_fx:
+                parts.append(fit_predict(feats, origin, use_fx=False, backend=backend)
+                             .rename(columns={"forecast": "gb_no_fx"}))
+            if run_fx:
+                parts.append(fit_predict(feats, origin, use_fx=True, backend=backend)
+                             .rename(columns={"forecast": "gb_fx"}))
+            merged = parts[0]
+            if len(parts) == 2:
+                merged = merged.merge(parts[1][["series_id", "gb_fx"]], on="series_id")
             out.append(merged)
     res = pd.concat(out, ignore_index=True).rename(columns={"base_nights": "naive"})
-    res = res[res["target_date"].between(TEST_START, TEST_END)]
+    res = res[res["target_date"].between(targets.min(), targets.max())]
 
     assert not _in_covid(res["target_date"]).any(), "covid months must never be evaluated"
     assert res["actual"].notna().all() and res["naive"].notna().all()
-    assert len(res) == 57 * len(targets) * len(HORIZONS), "missing forecasts"
+    assert len(res) == panel["series_id"].nunique() * len(targets) * len(HORIZONS), "missing forecasts"
     return res.reset_index(drop=True)
 
 
@@ -241,6 +256,7 @@ def check_no_lookahead(panel: pd.DataFrame, fx_yoy: pd.DataFrame, h: int, origin
 
 # --- Metrics ---------------------------------------------------------------
 MODELS = {"naive": "Seasonal naive", "gb_no_fx": "Model without FX", "gb_fx": "Model with FX"}
+COMBOS = {"combo_no_fx": "Naive + model without FX", "combo_fx": "Naive + model with FX"}
 
 
 def wape(actual: pd.Series, forecast: pd.Series) -> float:
@@ -255,14 +271,80 @@ def mape(actual: pd.Series, forecast: pd.Series) -> float:
     return float(100 * ((actual[ok] - forecast[ok]).abs() / actual[ok]).mean())
 
 
-def wape_table(res: pd.DataFrame, by: list[str]) -> pd.DataFrame:
-    """WAPE of the three models per group, plus the FX gain (no FX minus with FX, in points)."""
+def wape_table(res: pd.DataFrame, by: list[str], cols: list[str] | None = None) -> pd.DataFrame:
+    """WAPE per group for the given forecast columns (default: the three models),
+    plus the FX gain (no FX minus with FX, in points) when both models are present."""
+    cols = list(MODELS) if cols is None else cols
     rows = []
     for key, g in res.groupby(by, observed=True) if by else [((), res)]:
         row = dict(zip(by, key if isinstance(key, tuple) else (key,)))
-        for col in MODELS:
+        for col in cols:
             row[col] = wape(g["actual"], g[col])
-        row["fx_gain"] = row["gb_no_fx"] - row["gb_fx"]
+        if {"gb_no_fx", "gb_fx"} <= set(cols):
+            row["fx_gain"] = row["gb_no_fx"] - row["gb_fx"]
         row["n"] = len(g)
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+# --- Sprint 3B: noise floor, Diebold-Mariano, combinations -------------------
+MIN_SHIFT = 24      # months: a circular shift must move FX at least 2 years away from its true date
+
+
+def shift_fx(fx_yoy: pd.DataFrame, seed: int) -> tuple[pd.DataFrame, int]:
+    """Circularly shift the FX series in time by k months (same k for all currencies).
+
+    Unlike a plain shuffle, a circular shift keeps FX's autocorrelation and the
+    co-movement between currencies; it only breaks the link with the calendar.
+    k is drawn between MIN_SHIFT and n - MIN_SHIFT.
+    """
+    wide = fx_yoy.pivot(index="date", columns="currency", values="fx_yoy").sort_index()
+    assert wide.notna().all().all(), "currencies must cover the same months"
+    assert_monthly(wide.iloc[:, 0])
+    n = len(wide)
+    k = int(np.random.default_rng(seed).integers(MIN_SHIFT, n - MIN_SHIFT + 1))
+    rolled = pd.DataFrame(np.roll(wide.to_numpy(), k, axis=0), index=wide.index, columns=wide.columns)
+    out = rolled.reset_index().melt(id_vars="date", var_name="currency", value_name="fx_yoy")
+    assert len(out) == len(fx_yoy)
+    return out, k
+
+
+def dm_test(d: np.ndarray, h: int = max(HORIZONS)) -> tuple[float, float]:
+    """Diebold-Mariano test that the mean loss differential d is 0 (two-sided).
+
+    Newey-West variance with h-1 lags; Harvey-Leybourne-Newbold small-sample
+    correction; Student t with T-1 degrees of freedom.
+    """
+    from scipy import stats
+    d = np.asarray(d, dtype=float)
+    T = len(d)
+    assert T > 2 * h, "too few months for a DM test"
+    dc = d - d.mean()
+    var = dc @ dc / T
+    for lag in range(1, h):
+        var += 2 * (1 - lag / h) * (dc[lag:] @ dc[:-lag]) / T
+    stat = d.mean() / np.sqrt(var / T)
+    stat *= np.sqrt((T + 1 - 2 * h + h * (h - 1) / T) / T)
+    p = 2 * stats.t.sf(abs(stat), df=T - 1)
+    return float(stat), float(p)
+
+
+def holm(pvalues: pd.Series) -> pd.Series:
+    """Holm step-down adjustment of a set of p-values."""
+    order = pvalues.sort_values()
+    m = len(order)
+    adj = np.maximum.accumulate([(m - i) * p for i, p in enumerate(order)])
+    return pd.Series(np.minimum(adj, 1.0), index=order.index).reindex(pvalues.index)
+
+
+def loss_differential(res: pd.DataFrame, a: str, b: str) -> pd.Series:
+    """Monthly WAPE-scaled loss gap: sum(|err a| - |err b|) / sum(actual), over series and horizons."""
+    g = res.assign(diff=(res["actual"] - res[a]).abs() - (res["actual"] - res[b]).abs())
+    out = g.groupby("target_date").apply(lambda x: x["diff"].sum() / x["actual"].sum(), include_groups=False)
+    return 100 * out.sort_index()
+
+
+def add_combinations(res: pd.DataFrame) -> pd.DataFrame:
+    """Equal-weight averages of the seasonal naive and each model (no weights tuned)."""
+    return res.assign(combo_no_fx=(res["naive"] + res["gb_no_fx"]) / 2,
+                      combo_fx=(res["naive"] + res["gb_fx"]) / 2)
