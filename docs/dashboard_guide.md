@@ -115,6 +115,11 @@ Text for box 6 (keep it visible, not in a tooltip):
 > - **Moves beyond about ±10% are outside what the model saw historically.** Since 2006 the year-over-year change of
 >   EUR/CHF ranged from -18.1% to +10.3%; today's value is -0.8%, so a +10% move puts it at +8.8%, at the edge of that range.
 >   Trees cannot extrapolate: beyond the range they repeat the response of the most extreme months seen.
+> - **The response is weaker than the notebook 02 regression.** For Germany, a -10% move gives -2.2% nights over the
+>   next 6 months, while the regression coefficient at lag 6 (0.63) implies about -6% (0.9^0.63 - 1 = -6.4%). The forecast
+>   also uses recent nights and only covers 6 months, so the scenario shows what this model expects, **not an elasticity**.
+> - **Responses are not proportional.** Germany shows -2.4% at -4% but -1.2% at -6%: tree models split the FX feature
+>   at a few thresholds, so a bigger move does not always mean a bigger change.
 > - These are **associations learned from history, not causal effects**. After covid the FX gain in the backtest is
 >   inconclusive (p = 0.095), so treat scenarios as a sensitivity check, not a promise.
 
