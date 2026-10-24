@@ -1,6 +1,6 @@
 # Looker Studio dashboard — build guide
 
-Three pages on top of the BigQuery dataset `data-analytics-bootcamp-363212.swiss_tourism_fx` (location `europe-west6`, Zurich),
+Three pages on top of the BigQuery dataset `swiss-tourism-fx-2026.swiss_tourism_fx` (location `europe-west6`, Zurich),
 loaded by `python src/export_bq.py`:
 
 | Table | Used on | Grain |
@@ -17,7 +17,7 @@ Each table and column has a description in BigQuery (visible in Looker Studio wh
 ## 0. Setup (once)
 
 1. Open [lookerstudio.google.com](https://lookerstudio.google.com) with the Google account that owns the GCP project.
-2. **Create → Report**. In "Add data to report" choose **BigQuery → My projects → data-analytics-bootcamp-363212 → swiss_tourism_fx → nights_monthly → Add**.
+2. **Create → Report**. In "Add data to report" choose **BigQuery → My projects → swiss-tourism-fx-2026 → swiss_tourism_fx → nights_monthly → Add**.
 3. **Resource → Manage added data sources → Add a data source**: repeat for `metrics`, `forecasts_backtest` and `fx_scenarios`.
 4. **Theme and layout**: pick a light theme; canvas 1200 x 900 px. Use one fixed colour per origin market on every page
    (**Resource → Manage added data sources → Edit → field `market` or `origin` → "Dimension value colors"**; colours as in the
