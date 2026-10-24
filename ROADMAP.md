@@ -88,7 +88,7 @@ Part B (`src/run_experiments.py`, `notebooks/04_forecast_experiments.ipynb`):
 Part A (`src/export_bq.py`, `docs/dashboard_guide.md`):
 - [x] Scenario table: franc moved -10%..+10% at the Jul 2026 origin (EUR only / all currencies), model with FX, next 6 months
 - [x] Export script for BigQuery (`swiss_tourism_fx`, europe-west6): nights, backtest forecasts, WAPE sums, FX scenarios; `--dry-run` checks
-- [ ] Upload to BigQuery (blocked: the account lacks `bigquery.datasets.create` on the project)
+- [x] Upload to BigQuery: project `swiss-tourism-fx-2026` (dedicated, billing enabled), tables never expire
 - [x] Looker Studio build guide: demand history, forecast accuracy, FX scenario simulator
 - [ ] Build the Looker Studio dashboard by hand from the guide (replaces the Tableau Public plan)
 - [ ] README in English: headline, 3 charts, method, **limitations**

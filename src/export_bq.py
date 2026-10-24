@@ -31,7 +31,7 @@ from features import COVID_END, COVID_START
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "processed" / "bq"
-PROJECT = "data-analytics-bootcamp-363212"
+PROJECT = "swiss-tourism-fx-2026"
 DATASET = "swiss_tourism_fx"
 LOCATION = "europe-west6"
 DS_REF = f"{PROJECT}:{DATASET}"
