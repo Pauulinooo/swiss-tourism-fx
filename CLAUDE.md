@@ -2,7 +2,7 @@
 
 ## Project
 Portfolio project (data analyst, target: Swiss job market). Product: a forecast of monthly hotel
-overnight stays by canton, origin market and resort type (luxury vs mid-range), 1 to 6 months ahead,
+overnight stays by canton, origin market and resort type (luxury vs mid-range), 1 to 12 months ahead,
 for seasonal pricing and seasonal staffing, with the Swiss franc as the key explanatory variable
 (how much it moves the forecast). FX analysis serves the forecast: it designs the features.
 See `ROADMAP.md` for sprints and `data/README.md` for sources and data quirks. Read both before starting any task.
@@ -25,7 +25,7 @@ See `ROADMAP.md` for sprints and `data/README.md` for sources and data quirks. R
 - Excluded origins: India (no FX series), United Arab Emirates (series starts 2011, tiny volume).
 
 ## Modelling rules
-- Forecast target: 49 series (7 cantons x 7 origin markets) + the total of each of the 8 paired resorts. Horizon 1–6 months.
+- Forecast target: 49 series (7 cantons x 7 origin markets) + the total of each of the 8 paired resorts. Horizon 1–12 months (1–6 also tested against an FX noise floor in notebook 04; 7–12 validated like Sprint 3A in notebook 05).
 - Time-based validation only (`TimeSeriesSplit` / rolling origin). Never a random train/test split.
 - Always report a seasonal-naive baseline (same month last year) next to any model.
 - Direct strategy, one model per horizon h (1–6): FX features must be lagged **≥ h months** (known at the forecast origin).
