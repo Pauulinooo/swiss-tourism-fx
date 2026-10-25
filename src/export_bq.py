@@ -51,7 +51,7 @@ SCENARIO_TYPES = {"EUR only": {"EUR"}, "All currencies": {"EUR", "GBP", "USD", "
 
 SCENARIO_NOTE = ("A scenario means: if the franc moves X% now. fx_change_pct is the change in CHF per unit of "
                  "foreign currency at the forecast origin (Jul 2026) vs its actual value; negative = stronger "
-                 "franc. The model with FX re-forecasts the next 12 months with that FX value; lower_80/upper_80 are 80% intervals from past forecast errors, not FX uncertainty. Swiss guests have "
+                 "franc. The model with FX re-forecasts the next 12 months with that FX value; lower_80/upper_80 are 80% intervals from past forecast errors (fitted on Jan 2024 - Jul 2026, 2023 rebound left out), not FX uncertainty. Swiss guests have "
                  "no FX feature, so their forecast does not change. Associations learned from history, not causal "
                  "effects.")
 
@@ -130,6 +130,8 @@ SCHEMAS = {
         ("market", "STRING", "Origin market, or Resort totals"),
         ("model", "STRING", "gb_fx or combo_fx"),
         ("model_label", "STRING", "Readable model name"),
+        ("rule", "STRING", "check_preset (pre-set rule) or check_2024 (rule used for the outlook, set after the results)"),
+        ("rule_label", "STRING", "Months the interval was fitted on; filter on one rule before aggregating"),
         ("n_inside", "INT64", "Actual months inside the 80% interval (Jan 2025 - Jul 2026)"),
         ("n", "INT64", "Forecasts checked. Coverage = SUM(n_inside) / SUM(n)"),
         ("coverage_pct", "FLOAT64", "Coverage % of this row only; re-aggregate the counts")],
@@ -142,9 +144,10 @@ DESCRIPTIONS = {
                "WAPE = SUM(sum_abs_error) / SUM(sum_actual).",
     "fx_scenarios": SCENARIO_NOTE,
     "outlook": "Low-confidence outlook from the Jul 2026 origin: next 12 months and winter 2026/27, with 80% "
-               "intervals from past forecast errors (fitted on Jan 2023 - Jul 2026). Not a calendar-2027 forecast.",
-    "interval_coverage": "Out-of-sample check of the 80% intervals: fitted on 2023-2024 targets, checked on "
-                         "Jan 2025 - Jul 2026. Coverage = SUM(n_inside) / SUM(n).",
+               "intervals from past forecast errors (fitted on Jan 2024 - Jul 2026; the 2023 post-covid rebound is left out, "
+               "a choice made after seeing the results). Not a calendar-2027 forecast.",
+    "interval_coverage": "Out-of-sample check of the 80% intervals on Jan 2025 - Jul 2026, fitted on 2023-2024 "
+                         "(pre-set rule) or on 2024 only (2024+ rule). Coverage = SUM(n_inside) / SUM(n) within one rule.",
 }
 
 
@@ -313,7 +316,7 @@ def main(dry_run: bool) -> None:
 
     bt = build_backtest(panel, segments)
     post = bt[bt["window"] == "post_covid"].rename(columns={"peak_season": "peak"})
-    q = ol.interval_quantiles(post, calibration_only=False)
+    q = ol.interval_quantiles(post, "forward")    # 2024+ rule, decided after seeing the results (notebook 05)
     models = lh.forecast_from_origin(panel, fx_yoy)
     sc = build_scenarios(models, q, segments)
     outl = add_series_cols(ol.build_outlook(panel, fx_yoy, q, models), segments).assign(confidence="low")

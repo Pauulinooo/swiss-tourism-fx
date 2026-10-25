@@ -14,6 +14,7 @@ import long_horizon as lh
 import run_experiments as rx
 import run_long_horizon as rl
 
+FORWARD_FIT_START = pd.Timestamp("2024-01-01")       # forward-looking intervals: 2024 onwards (see below)
 WINDOWS_OUTLOOK = {"next_12m": "Next 12 months (Aug 2026 - Jul 2027)",
                    "winter": "Winter 2026/27 (Dec 2026 - Mar 2027)"}
 
@@ -39,9 +40,23 @@ def load_backtest(panel: pd.DataFrame) -> pd.DataFrame:
     return res
 
 
-def interval_quantiles(res: pd.DataFrame, calibration_only: bool) -> dict[str, pd.DataFrame]:
-    """q10/q90 per horizon x market for each interval column, from 2023-2024 targets or all 43 months."""
-    fit = res[res["target_date"] <= lh.CALIB_END] if calibration_only else res
+# Target months each interval rule fits its q10/q90 on. "preset" and "check_preset" are the rules fixed
+# before the results; the 2024+ rules were added AFTER seeing them (notebook 05): 2023 was the tail of
+# covid (post-covid rebound, actuals far above forecasts), so, like the covid exclusion in the
+# change-point analysis, it is left out of the intervals used for forward-looking numbers.
+INTERVAL_RULES = {
+    "preset": (fc.TEST_START, None),                         # all 43 months (pre-set rule for the outlook)
+    "forward": (FORWARD_FIT_START, None),                    # 2024 - Jul 2026: outlook and fx_scenarios
+    "check_preset": (fc.TEST_START, lh.CALIB_END),           # coverage check, pre-set: fit 2023-2024
+    "check_2024": (FORWARD_FIT_START, lh.CALIB_END),         # coverage check, 2024+ rule: fit 2024 only
+}
+
+
+def interval_quantiles(res: pd.DataFrame, rule: str) -> dict[str, pd.DataFrame]:
+    """q10/q90 per horizon x market for each interval column, fitted on the target months of `rule`."""
+    start, end = INTERVAL_RULES[rule]
+    fit = res[(res["target_date"] >= start) & (res["target_date"] <= (end or res["target_date"].max()))]
+    assert fit["target_date"].nunique() == {"preset": 43, "forward": 31, "check_preset": 24, "check_2024": 12}[rule]
     return {col: lh.fit_quantiles(fit, col) for col in lh.INTERVAL_COLS}
 
 
@@ -52,16 +67,19 @@ def with_intervals(df: pd.DataFrame, q: dict[str, pd.DataFrame]) -> pd.DataFrame
 
 
 def coverage_table(res: pd.DataFrame) -> pd.DataFrame:
-    """Out-of-sample coverage of the 80% intervals (fitted on 2023-2024, checked on Jan 2025 - Jul 2026),
-    by horizon x market, for the model with FX and the combination."""
-    ev = with_intervals(res[res["target_date"] >= lh.EVAL_START], interval_quantiles(res, calibration_only=True))
+    """Out-of-sample coverage of the 80% intervals on Jan 2025 - Jul 2026, by horizon x market, for the
+    model with FX and the combination, under the pre-set rule (fitted on 2023-2024) and the 2024+ rule
+    (fitted on 2024 only)."""
     parts = []
-    for col, lo, hi in [("gb_fx", "lower_80", "upper_80"), ("combo_fx", "combo_lower_80", "combo_upper_80")]:
-        c = ev.assign(inside=ev["actual"].between(ev[lo], ev[hi]))
-        g = c.groupby(["h", "market"], as_index=False).agg(n_inside=("inside", "sum"), n=("inside", "size"))
-        parts.append(g.assign(model=col, model_label={**fc.MODELS, **fc.COMBOS}[col]))
+    for rule, label in [("check_preset", "pre-set: fitted on 2023-2024"), ("check_2024", "2024+: fitted on 2024")]:
+        ev = with_intervals(res[res["target_date"] >= lh.EVAL_START], interval_quantiles(res, rule))
+        for col, lo, hi in [("gb_fx", "lower_80", "upper_80"), ("combo_fx", "combo_lower_80", "combo_upper_80")]:
+            c = ev.assign(inside=ev["actual"].between(ev[lo], ev[hi]))
+            g = c.groupby(["h", "market"], as_index=False).agg(n_inside=("inside", "sum"), n=("inside", "size"))
+            parts.append(g.assign(model=col, model_label={**fc.MODELS, **fc.COMBOS}[col], rule=rule, rule_label=label))
     out = pd.concat(parts, ignore_index=True)
     out["coverage_pct"] = 100 * out["n_inside"] / out["n"]
+    assert len(out) == 2 * 2 * 12 * 8
     return out
 
 
