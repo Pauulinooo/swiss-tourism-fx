@@ -2,11 +2,11 @@
 
 **Product:** forecasts monthly hotel overnight stays by canton, origin market and resort type (luxury vs mid-range) six months ahead, so hotels can plan seasonal pricing and seasonal staffing, and quantifies how much the Swiss franc moves that forecast.
 
-**Central question:** How well can monthly hotel nights be forecast 1–6 months ahead, and how much does the exchange rate improve that forecast?
+**Central question:** How well can monthly hotel nights be forecast 1–12 months ahead, and how much does the exchange rate improve that forecast?
 
 **Forecast set-up (fixed):**
 - **Series:** 7 cantons × 7 origin markets (49) + the total of each of the 8 paired resorts (4 luxury, 4 mid-range).
-- **Horizon:** 1 to 6 months ahead.
+- **Horizon:** 1 to 12 months ahead (7–12 added in Sprint 4; covers the winter season from a summer origin).
 - **FX:** direct strategy, one model per horizon h: FX features use **lags ≥ h** (rates known at the forecast origin); FX after the origin enters only as scenarios.
 - **Error:** **WAPE** (sum of absolute errors / sum of actuals) overall **and in peak-season months** (when seasonal staff is hired), always next to the seasonal-naive baseline. MAPE per series is secondary: it explodes on small, near-zero months (resort off-season).
 - **Peak season (confirmed):** each series' 3 highest months by average share of annual nights, 2013–2019 (`seasonal_profile`).
@@ -91,6 +91,15 @@ Part A (`src/export_bq.py`, `docs/dashboard_guide.md`):
 - [x] Upload to BigQuery: project `swiss-tourism-fx-2026` (dedicated, billing enabled), tables never expire
 - [x] Looker Studio build guide: demand history, forecast accuracy, FX scenario simulator
 - [ ] Build the Looker Studio dashboard by hand from the guide (replaces the Tableau Public plan)
+
+Part B — 12-month horizon (`src/long_horizon.py`, `src/run_long_horizon.py`, `src/outlook.py`, `notebooks/05_long_horizon.ipynb`):
+- [x] Horizon h = 1–12, direct strategy, same rules; `forecast.py` unchanged (scoped `horizons` override keeps the Sprint 3B cache valid)
+- [x] Validation of h = 7–12 on the same 43 post-covid target months: WAPE vs seasonal naive and combinations
+- [x] 80% prediction intervals from empirical log errors per horizon × market, coverage checked out of sample (2025–26)
+- [x] Low-confidence outlook from Jul 2026: next 12 months and winter 2026/27 (Dec–Mar), by canton and market
+- [x] Export: `fx_scenarios` to 12 months with intervals, new tables `outlook` and `interval_coverage`; guide updated
+- [x] Upload the 12-month tables to BigQuery (6 tables, row counts checked in BigQuery)
+- [x] Forward-looking intervals (outlook, fx_scenarios) refitted on Jan 2024 – Jul 2026, without the 2023 rebound (decided after seeing the results; coverage reported under both rules)
 - [ ] README in English: headline, 3 charts, method, **limitations**
 - [ ] *Optional storytelling:* the 2015 drop relative to the 2012–2014 trend (actual vs projected, Germany vs Switzerland), moved here from Sprint 2
 - [ ] 2-minute interview pitch: problem → data → finding → decision → limitations

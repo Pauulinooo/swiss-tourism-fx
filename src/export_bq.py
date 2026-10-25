@@ -3,9 +3,11 @@ Export dashboard tables to BigQuery (dataset swiss_tourism_fx, europe-west6) for
 
 Tables (replaced on every run):
   nights_monthly      actual monthly nights per series (57 series)
-  forecasts_backtest  backtest forecasts with actuals: post-covid and 2015-16 windows
+  forecasts_backtest  backtest forecasts with actuals: post-covid (h = 1-12) and 2015-16 (h = 1-6)
   metrics             absolute-error and actual sums by window, model, horizon, market, peak season
-  fx_scenarios        next 6 months from the latest origin, with the franc moved -10%..+10% now
+  fx_scenarios        next 12 months from the latest origin, franc moved -10%..+10% now, 80% intervals
+  outlook             next 12 months and winter 2026/27 from the Jul 2026 origin, 80% intervals (low confidence)
+  interval_coverage   out-of-sample coverage of the 80% intervals by horizon x market
 
 Uses the bq CLI and the gcloud login of the machine: no credentials in code or repo.
 Safety: every bq command is checked to target only PROJECT:DATASET; nothing is ever deleted.
@@ -25,6 +27,8 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import forecast as fc
+import long_horizon as lh
+import outlook as ol
 import run_experiments as rx
 from charts import connect
 from features import COVID_END, COVID_START
@@ -41,13 +45,13 @@ RESORT_CANTON = {"St. Moritz": "Graubünden", "Scuol": "Graubünden", "Klosters"
                  "Saanen": "Bern", "Lenk": "Bern"}
 BACKTEST_WINDOWS = ["post_covid", "shock_2015"]
 FORECAST_COLS = ["naive", "gb_no_fx", "gb_fx", "combo_no_fx", "combo_fx"]
-SCENARIO_ORIGIN = pd.Timestamp("2026-07-01")      # last month with nights for all 57 series
+SCENARIO_ORIGIN = lh.OUTLOOK_ORIGIN               # last month with nights for all 57 series
 SCENARIO_STEPS = list(range(-10, 11, 2))           # % change in CHF per unit of foreign currency
 SCENARIO_TYPES = {"EUR only": {"EUR"}, "All currencies": {"EUR", "GBP", "USD", "CNY"}}
 
 SCENARIO_NOTE = ("A scenario means: if the franc moves X% now. fx_change_pct is the change in CHF per unit of "
                  "foreign currency at the forecast origin (Jul 2026) vs its actual value; negative = stronger "
-                 "franc. The model with FX re-forecasts the next 6 months with that FX value. Swiss guests have "
+                 "franc. The model with FX re-forecasts the next 12 months with that FX value; lower_80/upper_80 are 80% intervals from past forecast errors (fitted on Jan 2024 - Jul 2026, 2023 rebound left out), not FX uncertainty. Swiss guests have "
                  "no FX feature, so their forecast does not change. Associations learned from history, not causal "
                  "effects.")
 
@@ -105,7 +109,32 @@ SCHEMAS = {
         ("naive", "FLOAT64", "Seasonal naive: same month last year (does not depend on the scenario)"),
         ("gb_fx_scenario", "FLOAT64", "Model with FX under the scenario"),
         ("combo_fx_scenario", "FLOAT64", "(naive + model with FX under the scenario) / 2"),
-        ("gb_fx_central", "FLOAT64", "Model with FX at the actual FX value (0% scenario)")],
+        ("gb_fx_central", "FLOAT64", "Model with FX at the actual FX value (0% scenario)"),
+        *[(f"{p}{b}_80", "FLOAT64", f"{'Lower' if b == 'lower' else 'Upper'} bound of the 80% interval of the "
+           f"{'combination' if p else 'model with FX'} (past forecast errors per horizon x market)")
+          for p in ["", "combo_"] for b in ["lower", "upper"]]],
+    "outlook": [
+        ("origin_date", "DATE", "Forecast origin (Jul 2026, last month with data for all series)"),
+        ("h", "INT64", "Horizon (months ahead)"),
+        ("target_date", "DATE", "Month forecast (Aug 2026 - Jul 2027)"), *SERIES_COLS,
+        ("in_winter", "BOOL", "Target month in winter 2026/27 (Dec 2026 - Mar 2027)"),
+        ("naive", "FLOAT64", "Seasonal naive: same month last year"),
+        ("gb_fx", "FLOAT64", "Model with FX"),
+        ("combo_fx", "FLOAT64", "Headline forecast: (naive + model with FX) / 2"),
+        *[(f"{p}{b}_80", "FLOAT64", f"{'Lower' if b == 'lower' else 'Upper'} bound of the 80% interval of the "
+           f"{'combination' if p else 'model with FX'}; summing bounds over months gives a wide, conservative total")
+          for p in ["", "combo_"] for b in ["lower", "upper"]],
+        ("confidence", "STRING", "low: 12-month outlook validated on one post-covid period")],
+    "interval_coverage": [
+        ("h", "INT64", "Horizon (months ahead)"),
+        ("market", "STRING", "Origin market, or Resort totals"),
+        ("model", "STRING", "gb_fx or combo_fx"),
+        ("model_label", "STRING", "Readable model name"),
+        ("rule", "STRING", "check_preset (pre-set rule) or check_2024 (rule used for the outlook, set after the results)"),
+        ("rule_label", "STRING", "Months the interval was fitted on; filter on one rule before aggregating"),
+        ("n_inside", "INT64", "Actual months inside the 80% interval (Jan 2025 - Jul 2026)"),
+        ("n", "INT64", "Forecasts checked. Coverage = SUM(n_inside) / SUM(n)"),
+        ("coverage_pct", "FLOAT64", "Coverage % of this row only; re-aggregate the counts")],
 }
 DESCRIPTIONS = {
     "nights_monthly": "Monthly hotel overnight stays per series (49 canton x origin + 8 resort totals). Source: BFS HESTA.",
@@ -114,6 +143,11 @@ DESCRIPTIONS = {
     "metrics": "Error sums for WAPE by window, model, horizon, market and peak season. "
                "WAPE = SUM(sum_abs_error) / SUM(sum_actual).",
     "fx_scenarios": SCENARIO_NOTE,
+    "outlook": "Low-confidence outlook from the Jul 2026 origin: next 12 months and winter 2026/27, with 80% "
+               "intervals from past forecast errors (fitted on Jan 2024 - Jul 2026; the 2023 post-covid rebound is left out, "
+               "a choice made after seeing the results). Not a calendar-2027 forecast.",
+    "interval_coverage": "Out-of-sample check of the 80% intervals on Jan 2025 - Jul 2026, fitted on 2023-2024 "
+                         "(pre-set rule) or on 2024 only (2024+ rule). Coverage = SUM(n_inside) / SUM(n) within one rule.",
 }
 
 
@@ -137,19 +171,19 @@ def build_nights(panel, segments) -> pd.DataFrame:
 
 
 def build_backtest(panel, segments) -> pd.DataFrame:
+    """Post-covid h = 1-12 (notebook 05 caches) and the 2015-16 shock h = 1-6 (Sprint 3B cache)."""
+    post = ol.load_backtest(panel).rename(columns={"peak": "peak_season"}).assign(window="post_covid")
     meta = json.loads((rx.OUT / "fingerprint.json").read_text())
     assert meta["fingerprint"] == rx.fingerprint(), "experiment cache is stale: run python src/run_experiments.py"
-    parts = []
-    for w in BACKTEST_WINDOWS:
-        b = fc.add_combinations(pd.read_csv(rx.OUT / f"base_{w}.csv", parse_dates=["target_date", "origin_date"]))
-        wp = rx.window_panel(panel, w)
-        peak = fc.peak_months(wp, years=tuple(rx.WINDOWS[w]["peak_years"]))
-        b["month"] = b["target_date"].dt.month
-        b = b.merge(peak, on=["series_id", "month"], how="left")
-        b["peak_season"] = b["peak"].fillna(False).astype(bool)
-        assert len(b) == wp["series_id"].nunique() * len(rx.targets(w)) * 6
-        parts.append(b.assign(window=w))
-    df = add_series_cols(pd.concat(parts, ignore_index=True), segments)
+    b = fc.add_combinations(pd.read_csv(rx.OUT / "base_shock_2015.csv", parse_dates=["target_date", "origin_date"]))
+    wp = rx.window_panel(panel, "shock_2015")
+    b["month"] = b["target_date"].dt.month
+    b = b.merge(fc.peak_months(wp, years=tuple(rx.WINDOWS["shock_2015"]["peak_years"])),
+                on=["series_id", "month"], how="left")
+    b["peak_season"] = b["peak"].fillna(False).astype(bool)
+    assert len(b) == 49 * len(rx.targets("shock_2015")) * 6
+    df = add_series_cols(pd.concat([post, b.assign(window="shock_2015")], ignore_index=True), segments)
+    assert len(df) == 57 * 43 * 12 + 49 * 24 * 6
     assert df[["actual", *FORECAST_COLS]].notna().all().all()
     return df
 
@@ -164,35 +198,30 @@ def build_metrics(bt: pd.DataFrame) -> pd.DataFrame:
     m = pd.concat(rows, ignore_index=True)
     m["wape"] = 100 * m["sum_abs_error"] / m["sum_actual"]
     # The sums must reproduce the notebooks' overall WAPE (post-covid 8.74 / 8.33 / 8.17)
-    pc = m[m["window"] == "post_covid"].groupby("model")[["sum_abs_error", "sum_actual"]].sum()
+    pc = m[(m["window"] == "post_covid") & (m["h"] <= 6)].groupby("model")[["sum_abs_error", "sum_actual"]].sum()
     w = (100 * pc["sum_abs_error"] / pc["sum_actual"]).round(2)
     assert (w["naive"], w["gb_no_fx"], w["gb_fx"]) == (8.74, 8.33, 8.17), w
     assert m.groupby("model")["n"].sum().eq(len(bt)).all()
     return m
 
 
-def build_scenarios(panel, fx_yoy, segments) -> pd.DataFrame:
-    """Train the model with FX on all data up to the origin (one model per horizon), then
-    re-forecast with the FX feature at the origin moved by log(1 + X%)."""
+def build_scenarios(models: dict, q: dict, segments) -> pd.DataFrame:
+    """Re-forecast the next 12 months with the FX feature at the origin moved by log(1 + X%).
+
+    `models` = long_horizon.forecast_from_origin (model with FX per horizon, trained on all
+    targets <= origin); `q` = interval percentiles per horizon x market (outlook.interval_quantiles).
+    """
     out = []
-    for h in fc.HORIZONS:
-        feats = fc.build_features(panel, fx_yoy, h)
-        cols = fc.feature_list(use_fx=True)
-        train = feats[(feats["target_date"] <= SCENARIO_ORIGIN) & feats["target"].notna()]
-        test = feats[(feats["origin_date"] == SCENARIO_ORIGIN) & feats["y_base"].notna()].copy()
-        assert train["origin_date"].max() < SCENARIO_ORIGIN and len(test) == 57
-        model = fc.make_model().fit(train[cols], train["target"])
-        central = np.clip(np.expm1(test["y_base"] + model.predict(test[cols])), 0, None)
+    for h, (model, test) in models.items():
+        central = lh.predict(model, test)
         for stype, currencies in SCENARIO_TYPES.items():
             hit = test["currency"].isin(currencies).to_numpy()
             for pct in SCENARIO_STEPS:
-                x = test[cols].copy()
-                x.loc[hit, fc.FX_FEATURE] = x.loc[hit, fc.FX_FEATURE] + np.log1p(pct / 100)
-                pred = np.clip(np.expm1(test["y_base"] + model.predict(x)), 0, None)
+                pred = lh.predict(model, test, pct / 100, currencies)
                 out.append(test[["series_id", "level", "geo", "origin", "resort_type", "h", "origin_date",
                                  "target_date", "base_nights", "currency"]]
                            .assign(scenario_type=stype, fx_change_pct=pct, fx_sensitive=hit,
-                                   gb_fx_scenario=pred.to_numpy(), gb_fx_central=central.to_numpy()))
+                                   gb_fx_scenario=pred, gb_fx_central=central))
     df = pd.concat(out, ignore_index=True).rename(columns={"base_nights": "naive"})
     df["fx_feature"] = df["currency"].fillna("none")
     df["combo_fx_scenario"] = (df["naive"] + df["gb_fx_scenario"]) / 2
@@ -202,19 +231,22 @@ def build_scenarios(panel, fx_yoy, segments) -> pd.DataFrame:
     df["scenario_label"] = [f"{c} {p:+d}% now ({d})" if p else f"{c} unchanged ({d})"
                             for c, p, d in zip(cur, df["fx_change_pct"], direction)]
     df = add_series_cols(df, segments)
+    df = lh.apply_interval(df, q["gb_fx"], "gb_fx_scenario")
+    df = lh.apply_interval(df, q["combo_fx"], "combo_fx_scenario", prefix="combo_")
 
-    n = 57 * len(fc.HORIZONS) * len(SCENARIO_STEPS) * len(SCENARIO_TYPES)
-    assert len(df) == n and df[["naive", "gb_fx_scenario"]].notna().all().all()
+    n = 57 * len(models) * len(SCENARIO_STEPS) * len(SCENARIO_TYPES)
+    assert len(df) == n and df[["naive", "gb_fx_scenario", "lower_80", "upper_80"]].notna().all().all()
     zero = df[df["fx_change_pct"] == 0]
     assert np.allclose(zero["gb_fx_scenario"], zero["gb_fx_central"]), "0% scenario must equal the central forecast"
     flat = df[~df["fx_sensitive"]]
     assert np.allclose(flat["gb_fx_scenario"], flat["gb_fx_central"]), "untouched series must not move"
     assert not df.loc[df["origin"] == "Switzerland", "fx_sensitive"].any()
+    assert (df["lower_80"] <= df["gb_fx_scenario"]).all() and (df["gb_fx_scenario"] <= df["upper_80"]).all()
     return df
 
 
 def monotonicity(sc: pd.DataFrame) -> pd.DataFrame:
-    """Total 6-month nights by scenario type x market across the FX steps."""
+    """Total 12-month nights by scenario type x market across the FX steps."""
     t = sc.groupby(["scenario_type", "market", "fx_change_pct"])["gb_fx_scenario"].sum().unstack()
     d = np.sign(np.diff(t.to_numpy(), axis=1).round(6))
     shape = np.select([(d == 0).all(1), (d >= 0).all(1), (d <= 0).all(1)],
@@ -283,9 +315,16 @@ def main(dry_run: bool) -> None:
     con.close()
 
     bt = build_backtest(panel, segments)
-    sc = build_scenarios(panel, fx_yoy, segments)
+    post = bt[bt["window"] == "post_covid"].rename(columns={"peak_season": "peak"})
+    q = ol.interval_quantiles(post, "forward")    # 2024+ rule, decided after seeing the results (notebook 05)
+    models = lh.forecast_from_origin(panel, fx_yoy)
+    sc = build_scenarios(models, q, segments)
+    outl = add_series_cols(ol.build_outlook(panel, fx_yoy, q, models), segments).assign(confidence="low")
+    zero = sc[(sc["fx_change_pct"] == 0) & (sc["scenario_type"] == "EUR only")]
+    assert np.allclose(np.sort(zero["gb_fx_scenario"]), np.sort(outl["gb_fx"])), "outlook = 0% scenario"
     tables = {"nights_monthly": build_nights(panel, segments), "forecasts_backtest": bt,
-              "metrics": build_metrics(bt), "fx_scenarios": sc}
+              "metrics": build_metrics(bt), "fx_scenarios": sc, "outlook": outl,
+              "interval_coverage": ol.coverage_table(post)}
 
     print("\nRow counts:")
     files = {}
@@ -294,7 +333,7 @@ def main(dry_run: bool) -> None:
         print(f"  {name:<20} {len(df):>7,} rows  -> {files[name][0].relative_to(ROOT)}")
 
     pd.set_option("display.width", 140)
-    print("\nScenario check: total nights over the next 6 months, % vs the 0% scenario")
+    print("\nScenario check: total nights over the next 12 months, % vs the 0% scenario")
     print(monotonicity(sc).round(2).to_string())
     hist = fx_yoy[fx_yoy["date"] < SCENARIO_ORIGIN].groupby("currency")["fx_yoy"].agg(["min", "max"]) * 100
     now = fx_yoy[fx_yoy["date"] == SCENARIO_ORIGIN].set_index("currency")["fx_yoy"] * 100
