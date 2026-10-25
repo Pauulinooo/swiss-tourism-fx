@@ -98,8 +98,8 @@ Part B — 12-month horizon (`src/long_horizon.py`, `src/run_long_horizon.py`, `
 - [x] 80% prediction intervals from empirical log errors per horizon × market, coverage checked out of sample (2025–26)
 - [x] Low-confidence outlook from Jul 2026: next 12 months and winter 2026/27 (Dec–Mar), by canton and market
 - [x] Export: `fx_scenarios` to 12 months with intervals, new tables `outlook` and `interval_coverage`; guide updated
-- [ ] Upload the 12-month tables to BigQuery
-- [ ] *Optional:* refit intervals without the 2023 rebound months (decision pending)
+- [x] Upload the 12-month tables to BigQuery (6 tables, row counts checked in BigQuery)
+- [x] Forward-looking intervals (outlook, fx_scenarios) refitted on Jan 2024 – Jul 2026, without the 2023 rebound (decided after seeing the results; coverage reported under both rules)
 - [ ] README in English: headline, 3 charts, method, **limitations**
 - [ ] *Optional storytelling:* the 2015 drop relative to the 2012–2014 trend (actual vs projected, Germany vs Switzerland), moved here from Sprint 2
 - [ ] 2-minute interview pitch: problem → data → finding → decision → limitations

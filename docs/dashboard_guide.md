@@ -79,8 +79,18 @@ Chart titles should state the takeaway (e.g. "German nights stepped down in 2011
 | 3 | Scorecards (`metrics`) | Three scorecards of `WAPE` with chart filters `model = naive`, `model = gb_fx`, `model = combo_fx` and `h = 6` |
 | 4 | Time series (`forecasts_backtest`) | Dimension `target_date`, metrics `SUM(actual)`, `SUM(naive)`, `SUM(gb_fx)`, `SUM(combo_fx)`. Add a drop-down control `series_id` (single select, default `Graubünden \| Germany`) and a chart filter `h = 6` |
 | 5 | Text box | The Sprint 3B verdicts (see below) |
-| 6 | Line chart (`interval_coverage`) | Dimension `h`, breakdown `model_label`, metric `Coverage`; add a reference line at 80%. Title: "The 80% intervals are slightly too wide: 85% of actual months fall inside (combination)" |
-| 7 | Table (`interval_coverage`) | Rows `market`, metric `Coverage`, chart filter `model = combo_fx`; conditional formatting below 75% and above 85% (US and China are below, Switzerland and the UK above) |
+| 6 | Line chart (`interval_coverage`) | Dimension `h`, breakdown `rule_label`, metric `Coverage`, chart filter `model = combo_fx`; add a reference line at 80%. Title: "Pre-set rule: 85% of actual months inside (slightly too wide); fitted on 2024 only: 81%" |
+| 7 | Table (`interval_coverage`) | Rows `market`, columns via pivot `rule_label`, metric `Coverage`, chart filter `model = combo_fx`; conditional formatting below 75% and above 85% (pre-set rule: US and China below, Switzerland and the UK above; 2024+ rule: the UK below, Switzerland above) |
+| 8 | **Text box (visible)** | See below |
+
+Text for box 8:
+
+> **Which interval rule?** The pre-set rule fitted the intervals on all post-covid months (2023-2026). **After seeing the
+> results** we fitted the forward-looking intervals (outlook, FX scenarios) on **Jan 2024 - Jul 2026 only**: 2023 was the
+> tail of covid (demand still rebounding, actuals far above forecasts, China above all), so it is left out like the covid
+> months in the change-point analysis. Because this choice was made after the fact, the coverage check is shown under both
+> rules: fitted on 2023-2024, the combination's interval held 84.7% of Jan 2025 - Jul 2026 months; fitted on 2024 only, 80.8%.
+> Never add the two rules together: filter on one `rule_label`.
 
 Text for box 5:
 
@@ -125,8 +135,8 @@ Text for box 6 (keep it visible, not in a tooltip):
 >   also uses recent nights, so the scenario shows what this model expects, **not an elasticity**.
 > - **Responses are not proportional.** Germany shows -1.4% at -4% but -0.8% at -6%: tree models split the FX feature
 >   at a few thresholds, so a bigger move does not always mean a bigger change.
-> - **The band (`lower_80` / `upper_80`) is past forecast error, not FX uncertainty.** It is fitted on 2023-2026 errors,
->   which include the 2023 rebound, so upper bounds are wide (China above all).
+> - **The band (`lower_80` / `upper_80`) is past forecast error, not FX uncertainty.** It is fitted on Jan 2024 - Jul 2026
+>   errors; the 2023 post-covid rebound was left out after seeing the results (see the page 2 note).
 > - These are **associations learned from history, not causal effects**. After covid the FX gain in the backtest is
 >   inconclusive (p = 0.095), so treat scenarios as a sensitivity check, not a promise.
 
@@ -166,11 +176,13 @@ Text for box 4:
 > **Low-confidence outlook.** Forecast = average of "same month last year" and the model with FX, made in Jul 2026
 > (the last month with data for every series). Validated on one post-covid period (2023-2026). Monthly bands are 80%
 > intervals from past forecast errors; **summed over months they are wider than 80%** (in the backtest they held 100% of
-> 12-month totals), so read the total as a range. Upper bounds are wide because the 2023 rebound is in the errors.
+> 12-month totals), so read the total as a wide range. Bands are fitted on Jan 2024 - Jul 2026 errors: the 2023 post-covid
+> rebound was left out, a choice made after seeing the results (with it, China's 12-month upper bound would be +269.9%).
 > Calendar 2027 is not forecast: Aug - Dec 2027 would be 13-17 months ahead.
 
 Headline numbers (notebook 05, 49 canton x origin series): next 12 months 25.0 m nights, +1.1% vs a year earlier
-(range -9.0% to +26.5%); winter 2026/27 8.4 m nights, +1.0% (range -9.2% to +24.0%).
+(wide range -9.1% to +15.5%); winter 2026/27 8.4 m nights, +1.0% (wide range -9.0% to +14.8%). China: +4.1%,
+upper bound +47.3%.
 
 ---
 
