@@ -106,10 +106,20 @@ Part B — 12-month horizon (`src/long_horizon.py`, `src/run_long_horizon.py`, `
 
 **Deliverable:** public repo + dashboard link, ready for CV and LinkedIn.
 
+## Sprint 5 — The original questions (`src/original_questions.py`, `notebooks/06_original_questions.ipynb`)
+
+Prediction and rules committed before any result (commit b2158c5).
+- [x] A. Canton vulnerability to a 10% stronger franc: euro exposure 2016–2019 × FX sensitivity (notebook 02 design, lag 6), 95% CI; cross-check with `fx_scenarios`
+- [x] B. Luxury vs mid-range after 2015: German minus Swiss index in 4 pairs, pre-set 3-of-4 rule; Scuol merger (1 Jan 2015) found after the results, verdict shown on comparable pairs too
+- [x] C. Model gain in seasonal staff at h = 6, canton peak months, under an explicit 40–180 nights per FTE assumption
+- [x] Export: `canton_vulnerability` and `resort_pairs` (dry run); guide page 5 "Vulnerability and resorts"
+- [ ] Upload the two new tables to BigQuery (after approval)
+
 ---
 
 ## Notes from the data checks
 
+- **Scuol merged on 1 Jan 2015** (with Ardez, Ftan, Guarda, Sent, Tarasp): its series before 2015 covers the old commune only, so comparisons across 2014/2015 are not valid (found in Sprint 5).
 - **Commune pairs available from 2013:** St. Moritz–Scuol, Klosters–Tujetsch, Zermatt–Saas-Grund, Saanen (Gstaad)–Lenk. Surses, Crans-Montana and Val de Bagnes are excluded (municipal mergers, no data before 2016/2017/2021).
 - **FX starts Aug 2005**, so 12-month lag features are available from mid-2006 only.
 - **Canton table has overnight stays only**: average length of stay is a commune-level analysis.
