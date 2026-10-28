@@ -113,7 +113,7 @@ Prediction and rules committed before any result (commit b2158c5).
 - [x] B. Luxury vs mid-range after 2015: German minus Swiss index in 4 pairs, pre-set 3-of-4 rule; Scuol merger (1 Jan 2015) found after the results, verdict shown on comparable pairs too
 - [x] C. Model gain in seasonal staff at h = 6, canton peak months, under an explicit 40–180 nights per FTE assumption
 - [x] Export: `canton_vulnerability` and `resort_pairs` (dry run); guide page 5 "Vulnerability and resorts"
-- [ ] Upload the two new tables to BigQuery (after approval)
+- [x] Upload the two new tables to BigQuery (8 tables, row counts checked in BigQuery)
 
 ---
 
