@@ -90,6 +90,7 @@ Part A (`src/export_bq.py`, `docs/dashboard_guide.md`):
 - [x] Export script for BigQuery (`swiss_tourism_fx`, europe-west6): nights, backtest forecasts, WAPE sums, FX scenarios; `--dry-run` checks
 - [x] Upload to BigQuery: project `swiss-tourism-fx-2026` (dedicated, billing enabled), tables never expire
 - [x] Looker Studio build guide: demand history, forecast accuracy, FX scenario simulator
+- [x] Dashboard simplified to 3 pages (What happened, Who is most exposed, Plan the next season); mockups in `docs/dashboard_mockups/` (`src/dashboard_mockups.py`)
 - [ ] Build the Looker Studio dashboard by hand from the guide (replaces the Tableau Public plan)
 
 Part B — 12-month horizon (`src/long_horizon.py`, `src/run_long_horizon.py`, `src/outlook.py`, `notebooks/05_long_horizon.ipynb`):
