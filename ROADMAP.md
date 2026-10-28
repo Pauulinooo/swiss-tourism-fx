@@ -115,6 +115,11 @@ Prediction and rules committed before any result (commit b2158c5).
 - [x] Export: `canton_vulnerability` and `resort_pairs` (dry run); guide page 5 "Vulnerability and resorts"
 - [x] Upload the two new tables to BigQuery (8 tables, row counts checked in BigQuery)
 
+## Repo polish (engineering, no result changes)
+- [x] `tests/`: pytest on synthetic data (no look-ahead, WAPE, FX shifts, DM, Holm, data checks)
+- [x] GitHub Actions: pinned install + pytest on every push and PR; badge in the README
+- [x] `requirements.txt` pinned to exact versions (Python 3.12); MIT `LICENSE`; empty `dashboard/` removed
+
 ---
 
 ## Notes from the data checks
