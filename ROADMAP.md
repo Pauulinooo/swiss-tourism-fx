@@ -100,7 +100,7 @@ Part B — 12-month horizon (`src/long_horizon.py`, `src/run_long_horizon.py`, `
 - [x] Export: `fx_scenarios` to 12 months with intervals, new tables `outlook` and `interval_coverage`; guide updated
 - [x] Upload the 12-month tables to BigQuery (6 tables, row counts checked in BigQuery)
 - [x] Forward-looking intervals (outlook, fx_scenarios) refitted on Jan 2024 – Jul 2026, without the 2023 rebound (decided after seeing the results; coverage reported under both rules)
-- [ ] README in English: headline, 3 charts, method, **limitations**
+- [x] README in English: key findings, 3 charts, method, **limitations** (dashboard link to be added)
 - [ ] *Optional storytelling:* the 2015 drop relative to the 2012–2014 trend (actual vs projected, Germany vs Switzerland), moved here from Sprint 2
 - [ ] 2-minute interview pitch: problem → data → finding → decision → limitations
 
