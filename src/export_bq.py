@@ -8,6 +8,8 @@ Tables (replaced on every run):
   fx_scenarios        next 12 months from the latest origin, franc moved -10%..+10% now, 80% intervals
   outlook             next 12 months and winter 2026/27 from the Jul 2026 origin, 80% intervals (low confidence)
   interval_coverage   out-of-sample coverage of the 80% intervals by horizon x market
+  canton_vulnerability  expected % change in each canton's nights for a 10% stronger franc (notebook 06, A)
+  resort_pairs        German vs Swiss nights after the 2015 shock, 8 resorts in 4 luxury/mid-range pairs (notebook 06, B)
 
 Uses the bq CLI and the gcloud login of the machine: no credentials in code or repo.
 Safety: every bq command is checked to target only PROJECT:DATASET; nothing is ever deleted.
@@ -28,6 +30,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import forecast as fc
 import long_horizon as lh
+import original_questions as oq
 import outlook as ol
 import run_experiments as rx
 from charts import connect
@@ -135,6 +138,36 @@ SCHEMAS = {
         ("n_inside", "INT64", "Actual months inside the 80% interval (Jan 2025 - Jul 2026)"),
         ("n", "INT64", "Forecasts checked. Coverage = SUM(n_inside) / SUM(n)"),
         ("coverage_pct", "FLOAT64", "Coverage % of this row only; re-aggregate the counts")],
+    "canton_vulnerability": [
+        ("rank", "INT64", "1 = largest expected fall in nights"),
+        ("canton", "STRING", "Canton"),
+        ("segment", "STRING", "Canton seasonality segment"),
+        ("exposure_pct", "FLOAT64", "Euro-market (DE, FR, IT) share of the canton's nights 2016-2019, % (7 tracked markets)"),
+        ("beta", "FLOAT64", "YoY euro nights on YoY EUR/CHF at lag 6 (notebook 02 design, covid excluded)"),
+        ("beta_lo", "FLOAT64", "Lower bound of beta's 95% CI (Newey-West)"),
+        ("beta_hi", "FLOAT64", "Upper bound of beta's 95% CI"),
+        ("p_value", "FLOAT64", "p-value of beta"),
+        ("n_months", "INT64", "Months in the regression"),
+        ("vulnerability_pct", "FLOAT64", "Expected % change in the canton's nights for a 10% stronger franc = exposure x (0.9^beta - 1)"),
+        ("vulnerability_lo", "FLOAT64", "95% interval, most negative end"),
+        ("vulnerability_hi", "FLOAT64", "95% interval, least negative end"),
+        ("scenario_pct", "FLOAT64", "Cross-check: fx_scenarios, EUR only -10%, canton's 12-month nights vs the 0% scenario (model with FX)"),
+        ("scenario_rank", "INT64", "Rank of scenario_pct (1 = largest fall)")],
+    "resort_pairs": [
+        ("pair", "STRING", "Luxury - mid-range pair"),
+        ("resort", "STRING", "Commune"),
+        ("resort_type", "STRING", "luxury or mid-range"),
+        ("canton", "STRING", "Canton of the resort"),
+        ("de_nights_post", "FLOAT64", "German nights Jul 2015 - Dec 2016"),
+        ("de_nights_base", "FLOAT64", "German nights in the same calendar months of 2014"),
+        ("ch_nights_post", "FLOAT64", "Swiss nights Jul 2015 - Dec 2016"),
+        ("ch_nights_base", "FLOAT64", "Swiss nights in the same calendar months of 2014"),
+        ("de_index", "FLOAT64", "German index: post / base x 100"),
+        ("ch_index", "FLOAT64", "Swiss index: post / base x 100"),
+        ("gap", "FLOAT64", "German index minus Swiss index (points); below 0 = German guests fell more"),
+        ("gap_2014_vs_2013", "FLOAT64", "Same gap for 2014 vs 2013 (before the shock, context only)"),
+        ("comparable", "BOOL", "FALSE for the St. Moritz - Scuol pair: Scuol merged with five villages on 1 Jan 2015"),
+        ("luxury_fell_more", "BOOL", "Pair-level: the luxury resort's gap is below the mid-range resort's")],
 }
 DESCRIPTIONS = {
     "nights_monthly": "Monthly hotel overnight stays per series (49 canton x origin + 8 resort totals). Source: BFS HESTA.",
@@ -148,6 +181,11 @@ DESCRIPTIONS = {
                "a choice made after seeing the results). Not a calendar-2027 forecast.",
     "interval_coverage": "Out-of-sample check of the 80% intervals on Jan 2025 - Jul 2026, fitted on 2023-2024 "
                          "(pre-set rule) or on 2024 only (2024+ rule). Coverage = SUM(n_inside) / SUM(n) within one rule.",
+    "canton_vulnerability": "Notebook 06, A: expected change in each canton's nights for a 10% stronger franc "
+                            "(exposure x sensitivity, 95% CI), with the fx_scenarios cross-check. Associations, not causal effects.",
+    "resort_pairs": "Notebook 06, B: German vs Swiss nights in Jul 2015 - Dec 2016 vs the same months of 2014, "
+                    "8 resorts in 4 luxury/mid-range pairs. 4-case study, not a statistical test; St. Moritz - Scuol "
+                    "is not comparable (Scuol merger, 1 Jan 2015).",
 }
 
 
@@ -257,6 +295,46 @@ def monotonicity(sc: pd.DataFrame) -> pd.DataFrame:
     return res
 
 
+def build_vulnerability(con, sc: pd.DataFrame, models: dict, segments) -> pd.DataFrame:
+    v = oq.vulnerability(con)
+    scen = oq.scenario_by_canton(models)
+    # same numbers as the fx_scenarios table (EUR only, -10% vs 0%, canton series, model with FX)
+    t = sc[(sc["scenario_type"] == "EUR only") & (sc["level"] == "canton")]
+    t = t.groupby(["geo", "fx_change_pct"])["gb_fx_scenario"].sum().unstack()
+    assert np.allclose(100 * (t[-10] / t[0] - 1), scen.reindex(t.index)), "cross-check differs from fx_scenarios"
+    v = v.merge(scen.rename_axis("canton").reset_index(), on="canton")
+    v["scenario_rank"] = v["scenario_pct"].rank(method="min").astype(int)
+    v["segment"] = v["canton"].map(segments)
+    v["exposure_pct"] = 100 * v["exposure"]
+    v = v.rename(columns={"p": "p_value", "N": "n_months", "vuln_pct": "vulnerability_pct",
+                          "vuln_lo": "vulnerability_lo", "vuln_hi": "vulnerability_hi"})
+    assert len(v) == 7 and v["segment"].notna().all()
+    return v[[c for c, _, _ in SCHEMAS["canton_vulnerability"]]]
+
+
+def build_resort_pairs(con) -> pd.DataFrame:
+    idx, pairs = oq.resort_pairs(con)
+    w = idx.pivot(index="geo", columns="origin")
+    rows = []
+    for _, p in pairs.iterrows():
+        for resort in [p["luxury"], p["mid_range"]]:
+            rows.append({"pair": p["pair"], "resort": resort, "resort_type": fc.RESORTS[resort],
+                         "canton": RESORT_CANTON[resort],
+                         "de_nights_post": w.loc[resort, ("nights_post", "Germany")],
+                         "de_nights_base": w.loc[resort, ("nights_base_2014", "Germany")],
+                         "ch_nights_post": w.loc[resort, ("nights_post", "Switzerland")],
+                         "ch_nights_base": w.loc[resort, ("nights_base_2014", "Switzerland")],
+                         "de_index": w.loc[resort, ("index_post", "Germany")],
+                         "ch_index": w.loc[resort, ("index_post", "Switzerland")],
+                         "gap_2014_vs_2013": (w.loc[resort, ("index_2014_vs_2013", "Germany")]
+                                              - w.loc[resort, ("index_2014_vs_2013", "Switzerland")]),
+                         "comparable": p["comparable"], "luxury_fell_more": p["luxury_fell_more"]})
+    df = pd.DataFrame(rows)
+    df["gap"] = df["de_index"] - df["ch_index"]
+    assert len(df) == 8 and df["resort"].is_unique and (~df["comparable"]).sum() == 2
+    return df[[c for c, _, _ in SCHEMAS["resort_pairs"]]]
+
+
 # --- Upload ----------------------------------------------------------------
 def bq(*args: str, target: str, extra: tuple[str, ...] = ()) -> str:
     """Run a bq command; refuse anything that does not target our dataset."""
@@ -312,7 +390,6 @@ def main(dry_run: bool) -> None:
     con = connect()
     panel, fx_yoy = fc.load_panel(con), fc.load_fx_yoy(con)
     segments = con.sql("SELECT geo, segment FROM canton_segment").df().set_index("geo")["segment"]
-    con.close()
 
     bt = build_backtest(panel, segments)
     post = bt[bt["window"] == "post_covid"].rename(columns={"peak_season": "peak"})
@@ -324,7 +401,10 @@ def main(dry_run: bool) -> None:
     assert np.allclose(np.sort(zero["gb_fx_scenario"]), np.sort(outl["gb_fx"])), "outlook = 0% scenario"
     tables = {"nights_monthly": build_nights(panel, segments), "forecasts_backtest": bt,
               "metrics": build_metrics(bt), "fx_scenarios": sc, "outlook": outl,
-              "interval_coverage": ol.coverage_table(post)}
+              "interval_coverage": ol.coverage_table(post),
+              "canton_vulnerability": build_vulnerability(con, sc, models, segments),
+              "resort_pairs": build_resort_pairs(con)}
+    con.close()
 
     print("\nRow counts:")
     files = {}

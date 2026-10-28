@@ -1,6 +1,6 @@
 # Looker Studio dashboard — build guide
 
-Three pages (plus an optional outlook page) on top of the BigQuery dataset `swiss-tourism-fx-2026.swiss_tourism_fx` (location `europe-west6`, Zurich),
+Five pages on top of the BigQuery dataset `swiss-tourism-fx-2026.swiss_tourism_fx` (location `europe-west6`, Zurich),
 loaded by `python src/export_bq.py`:
 
 | Table | Used on | Grain |
@@ -11,6 +11,8 @@ loaded by `python src/export_bq.py`:
 | `interval_coverage` | Page 2 | horizon x market x model (out-of-sample coverage **counts** of the 80% intervals) |
 | `fx_scenarios` | Page 3 | scenario x series x horizon (origin Jul 2026, targets Aug 2026 – Jul 2027), with 80% intervals |
 | `outlook` | Page 4 | series x month, Aug 2026 – Jul 2027 from the Jul 2026 origin, with 80% intervals (low confidence) |
+| `canton_vulnerability` | Page 5 | canton (7 rows): exposure, FX sensitivity, vulnerability to a 10% stronger franc |
+| `resort_pairs` | Page 5 | resort (8 rows, 4 luxury/mid-range pairs): German and Swiss nights after the 2015 shock |
 
 Each table and column has a description in BigQuery (visible in Looker Studio when you hover a field).
 
@@ -20,12 +22,12 @@ Each table and column has a description in BigQuery (visible in Looker Studio wh
 
 1. Open [lookerstudio.google.com](https://lookerstudio.google.com) with the Google account that owns the GCP project.
 2. **Create → Report**. In "Add data to report" choose **BigQuery → My projects → swiss-tourism-fx-2026 → swiss_tourism_fx → nights_monthly → Add**.
-3. **Resource → Manage added data sources → Add a data source**: repeat for `metrics`, `forecasts_backtest`, `interval_coverage`, `fx_scenarios` and `outlook`.
+3. **Resource → Manage added data sources → Add a data source**: repeat for `metrics`, `forecasts_backtest`, `interval_coverage`, `fx_scenarios`, `outlook`, `canton_vulnerability` and `resort_pairs`.
 4. **Theme and layout**: pick a light theme; canvas 1200 x 900 px. Use one fixed colour per origin market on every page
    (**Resource → Manage added data sources → Edit → field `market` or `origin` → "Dimension value colors"**; colours as in the
    repo charts: Switzerland blue, Germany orange, France teal, Italy amber, United Kingdom pink, United States green, China purple,
    Resort totals grey).
-5. Add **pages** (Page → New page) named *Demand history*, *Forecast accuracy*, *FX scenario simulator*, *Outlook 2026/27*.
+5. Add **pages** (Page → New page) named *Demand history*, *Forecast accuracy*, *FX scenario simulator*, *Outlook 2026/27*, *Vulnerability and resorts*.
 6. On every page add a small text box at the bottom: *Source: BFS, HESTA (hotel overnight stays); SNB (exchange rates). Hotels only.*
 
 ### Calculated fields (add in the data source: Edit → Add a field)
@@ -186,12 +188,41 @@ upper bound +47.3%.
 
 ---
 
+## Page 5 — Vulnerability and resorts (`canton_vulnerability`, `resort_pairs`)
+
+**Message:** "Graubünden looks the most vulnerable canton to a stronger franc; whether luxury resorts lost more German guests
+after 2015 is not established".
+
+| # | Element | Setup |
+|---|---|---|
+| 1 | Bar chart (`canton_vulnerability`) | Dimension `canton`, metric `MIN(vulnerability_pct)`, sorted ascending (most negative first). Horizontal bars. Title: "A 10% stronger franc is linked to -2.2% nights in Graubünden, the most of 7 cantons (interval overlaps Valais)" |
+| 2 | Table (`canton_vulnerability`) | Columns `rank`, `canton`, `exposure_pct`, `beta`, `vulnerability_pct`, `vulnerability_lo`, `vulnerability_hi`, `scenario_pct`, `scenario_rank`. Looker has no error bars: the table carries the 95% interval |
+| 3 | Scatter (`canton_vulnerability`) | Dimension `canton`, X `MIN(exposure_pct)`, Y `MIN(beta)`, bubble labels on. Subtitle: "Geneva has the most euro guests (28%) but they move less with the franc" |
+| 4 | Bar chart (`resort_pairs`) | Dimension `resort`, breakdown `resort_type`, metric `MIN(gap)`; chart filter `comparable = true`. Sort by `pair`. Title: "Luxury lost more German nights (vs Swiss guests) in 2 of 3 comparable pairs" |
+| 5 | Table (`resort_pairs`) | `pair`, `resort`, `resort_type`, `de_index`, `ch_index`, `gap`, `gap_2014_vs_2013`, `comparable` (all 8 rows, so the excluded pair is visible) |
+| 6 | **Text box (visible)** | See below |
+
+Use `MIN` (or `MAX`) for these metrics: each row is already one canton or one resort, so `SUM` would only be right by accident.
+
+Text for box 6:
+
+> **How to read this page.** Vulnerability = euro share of the canton's nights (2016-2019) x the link between euro nights
+> and EUR/CHF six months earlier (notebook 02 design, covid excluded). It is an association, not a causal effect, and the
+> canton total covers the 7 tracked markets only. The forecast model's own scenario (EUR -10%) also puts Graubünden first.
+> **Resorts:** German minus Swiss index, Jul 2015 - Dec 2016 vs the same months of 2014. The pre-set rule ("luxury lost more"
+> if in at least 3 of 4 pairs) gave 3 of 4, but **St. Moritz - Scuol is not comparable**: Scuol merged with five villages
+> on 1 Jan 2015 (found after the results). On the 3 comparable pairs luxury fell more in 2, so the claim is **not established**.
+> 4 cases, volumes not prices; hypothesis from Blengini and Heo (2019, EHL / HES-SO): a stronger franc reduced occupancy only in
+> luxury hotels.
+
+---
+
 ## Final checklist
 
 - [ ] Every chart title states the takeaway; axis titles name the unit (nights, %).
 - [ ] Market colours are the same on all three pages.
 - [ ] Page 2 uses the calculated `WAPE`, never an average of `wape`.
-- [ ] Page 3 text box 6 and page 4 text box 4 are visible without hovering.
+- [ ] Page 3 text box 6, page 4 text box 4 and page 5 text box 6 are visible without hovering.
 - [ ] Source line on every page.
 - [ ] **Share → Manage access**: "Anyone with the link can view". Viewers see data through your credentials
       (Data source → Data credentials: Owner's), so they need no access to the GCP project.

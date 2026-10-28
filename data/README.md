@@ -15,6 +15,7 @@ Raw files in `raw/` are exactly as downloaded and are never edited. `src/load_da
 - The commune table spells July as `Juli`.
 - FX rates: a falling value means the franc **appreciates**. CNY is quoted per 100 units.
 - Commune mergers break series: Surses exists only from 2016, Crans-Montana from 2017, Val de Bagnes from 2021 (excluded from pairs, see below).
+- **Scuol merged on 1 Jan 2015** with Ardez, Ftan, Guarda, Sent and Tarasp. BFS does not back-cast: before 2015 the series covers the old commune only (German nights jump about 5x in 2015). Found in Sprint 5; any comparison across 2014/2015 for Scuol is invalid.
 - Monthly values add up exactly to the published annual totals, except where a month is suppressed (e.g. Anniviers 2020).
 
 ## Scope decisions

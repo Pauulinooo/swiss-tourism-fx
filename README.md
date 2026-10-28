@@ -17,7 +17,11 @@ Details and known data issues: [`data/README.md`](data/README.md).
 2. **FX analysis → feature design** (`notebooks/02_fx_effect.ipynb`): trend regimes, which FX lags, symmetric or asymmetric effect.
 3. **Forecasting** (`notebooks/03_forecasting.ipynb`): seasonal-naive baseline vs a global gradient-boosting model per horizon, without and with FX; rolling-origin validation; WAPE overall, by origin market and in peak-season months.
    Results use scikit-learn's `HistGradientBoostingRegressor`, because LightGBM could not be installed on the development machine (no `libomp` for macOS 14 on Intel). The backend is a parameter in `src/forecast.py` (`"lightgbm"` if it can be imported).
-4. **Scenarios**: e.g. "EUR/CHF at 0.90 → nights by canton, next 6 months".
+4. **Scenarios and outlook** (`notebooks/05_long_horizon.ipynb`, `src/export_bq.py`): franc moved -10%..+10% now, next 12 months, 80% intervals; low-confidence outlook for the next 12 months and winter 2026/27.
+5. **The original questions** (`notebooks/06_original_questions.ipynb`, rules committed before the results):
+   which cantons are most vulnerable to a stronger franc (Graubünden first, -2.2% nights for a 10% stronger franc, interval overlapping Valais);
+   did luxury resorts lose more German guests after 2015 (not established: 2 of 3 comparable pairs; St. Moritz - Scuol is broken by a 2015 merger);
+   and what the model's accuracy is worth in seasonal staff (an illustration under an explicit assumption).
 
 ## Limitations
 - HESTA covers hotels only: a shift of guests to holiday flats or Airbnb looks like lost demand.
@@ -34,7 +38,7 @@ python src/run_long_horizon.py --jobs 4  # h = 7-12 backtest, ~5 min, cached for
 python src/export_bq.py --dry-run         # dashboard tables; drop --dry-run to upload to BigQuery
 jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 \
   notebooks/01_eda.ipynb notebooks/02_fx_effect.ipynb notebooks/03_forecasting.ipynb \
-  notebooks/04_forecast_experiments.ipynb notebooks/05_long_horizon.ipynb
+  notebooks/04_forecast_experiments.ipynb notebooks/05_long_horizon.ipynb notebooks/06_original_questions.ipynb
 ```
 
 ## Updating with new BFS data
