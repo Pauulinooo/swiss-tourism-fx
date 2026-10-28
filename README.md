@@ -2,6 +2,8 @@
 
 **Forecasts monthly hotel overnight stays by canton, origin market and resort type (luxury vs mid-range) 1 to 12 months ahead, so hotels can plan seasonal pricing and seasonal staffing, and quantifies how much the Swiss franc moves that forecast.**
 
+**Tools:** Python (pandas, scikit-learn, statsmodels, ruptures), SQL (DuckDB, BigQuery), Looker Studio, Git/GitHub.
+
 [Dashboard: link to be added]
 
 ## Key findings
@@ -20,7 +22,7 @@
 2. **SQL layer:** DuckDB views for year-over-year change, market share, seasonal profiles and canton segments; the same tables are exported to BigQuery for the dashboard.
 3. **Change points:** PELT (`ruptures`) on German, Swiss and US nights, with covid excluded from the FX estimates; FX lags and asymmetry tested with HAC regressions.
 4. **Forecasting:** a global gradient-boosting model per horizon (direct strategy, FX lagged ≥ h), against a seasonal-naive baseline, with rolling-origin validation (no random splits), 20 time-shifted FX placebos and Diebold-Mariano tests.
-5. **Pre-registered rules:** test windows, thresholds and the analyst's predictions were committed before the results; decisions taken after seeing results are labelled as such.
+5. **Rules before results:** test windows and decision thresholds were fixed before the results throughout; decisions taken after seeing results are labelled as such. In Sprint 5, the rules and the analyst's prediction were committed on their own before the analysis ([commit b2158c5](https://github.com/Pauulinooo/swiss-tourism-fx/commit/b2158c5)).
 
 ## Limitations
 - **Hotels only.** HESTA does not cover holiday flats or Airbnb, so a shift of guests to them looks like lost demand.
