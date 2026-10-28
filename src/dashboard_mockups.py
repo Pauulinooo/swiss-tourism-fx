@@ -45,7 +45,7 @@ def page2_data():
     return v
 
 
-def page3_data(scenario_type="All currencies", change=-10):
+def page3_data(scenario_type="EUR only", change=-10):
     s = pd.read_csv(BQ / "fx_scenarios.csv")
     s = s[(s["scenario_type"] == scenario_type) & (s["fx_change_pct"] == change) & (s["level"] == "canton")]
     g = s.groupby("market")[["gb_fx_scenario", "gb_fx_central"]].sum()
@@ -180,16 +180,18 @@ def draw_page2():
 
 def draw_page3():
     by_market, outlook, wape = page3_data()
-    foreign = by_market.drop("Switzerland")
-    assert round(foreign.max()) == -2 and round(foreign.min()) == -5      # "2-5%" in the message
+    euro = by_market[["Germany", "France", "Italy"]]
+    assert (by_market.drop(euro.index) == 0).all()                        # EUR only: other markets do not move
+    lo, hi = round(-euro.max()), round(-euro.min())
+    assert (lo, hi) == (2, 3)
     fig = page("Plan the next season",
-               "Roughly flat, about +1%, with low confidence. If the franc strengthens 10% now, "
-               "foreign markets lose 2-5% of their nights.")
-    control(fig, (0.04, 0.80, 0.25, 0.05), "Scenario", "All currencies")
-    control(fig, (0.31, 0.80, 0.23, 0.05), "Franc move now (%)", "-10")
-    mock_note(fig, 0.56, 0.835, "Negative = stronger franc. Controls filter the bar chart only.")
+               "Roughly flat, about +1%, with low confidence. If the franc strengthens 10% against the euro now,\n"
+               f"the model expects euro markets to lose about {lo}-{hi}% of their nights.")
+    control(fig, (0.04, 0.78, 0.25, 0.05), "Scenario", "EUR only")
+    control(fig, (0.31, 0.78, 0.23, 0.05), "Franc move now (%)", "-10")
+    mock_note(fig, 0.56, 0.815, "Negative = stronger franc. Controls filter the bar chart only.")
 
-    ax = fig.add_axes([0.17, 0.17, 0.42, 0.53])
+    ax = fig.add_axes([0.17, 0.215, 0.42, 0.47])
     colors = [ORIGIN_COLORS[mk] for mk in by_market.index]
     ax.barh(by_market.index, by_market.values, color=colors, height=0.6)
     for y, val in enumerate(by_market.values):
@@ -202,12 +204,14 @@ def draw_page3():
     ax.set_axisbelow(True)
     ax.set_xlabel("Change in hotel nights, Aug 2026 - Jul 2027, vs the actual rate")
     ax.set_title("Nights change by market for the selected scenario", fontsize=13, pad=10, x=-0.25, ha="left")
+    fig.text(0.04, 0.145, "Model expectation, not a causal effect; responses are not proportional to the size of the move.",
+             fontsize=9.5, color=INK_SOFT, style="italic")
 
-    card(fig, (0.66, 0.52, 0.30, 0.18), "Next 12 months (Aug 2026 - Jul 2027) vs a year earlier",
+    card(fig, (0.66, 0.50, 0.30, 0.18), "Next 12 months (Aug 2026 - Jul 2027) vs a year earlier",
          f"{outlook['12m']:+.1f}%")
-    card(fig, (0.66, 0.30, 0.30, 0.18), "Winter 2026/27 (Dec - Mar) vs a year earlier",
+    card(fig, (0.66, 0.28, 0.30, 0.18), "Winter 2026/27 (Dec - Mar) vs a year earlier",
          f"{outlook['winter']:+.1f}%")
-    mock_note(fig, 0.66, 0.285, f"Forecast: {fmt_m(outlook['12m_nights'])} and {fmt_m(outlook['winter_nights'])} "
+    mock_note(fig, 0.66, 0.265, f"Forecast: {fmt_m(outlook['12m_nights'])} and {fmt_m(outlook['winter_nights'])} "
                                 "nights (outlook, combo_fx).")
 
     fig.text(0.04, 0.10, f"Forecast error 6 months ahead (Jan 2023 - Jul 2026): {wape['combo_fx']:.1f}% for the "

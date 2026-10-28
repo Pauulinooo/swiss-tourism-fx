@@ -9,7 +9,7 @@ copy the layout, titles and labels from it.
 |---|---|---|
 | 1. What happened | German guests stepped down after the 2011 and 2015 franc shocks and have not come back; US guests more than doubled | `nights_monthly` |
 | 2. Who is most exposed | A 10% stronger franc is linked to 2.2% fewer hotel nights in Graubünden, the most of 7 cantons (interval overlaps Valais) | `canton_vulnerability` |
-| 3. Plan the next season | Roughly flat, about +1%, with low confidence; if the franc strengthens 10% now, foreign markets lose 2-5% of their nights | `fx_scenarios`, `outlook` |
+| 3. Plan the next season | Roughly flat, about +1%, with low confidence. If the franc strengthens 10% against the euro now, the model expects euro markets to lose about 2-3% of their nights | `fx_scenarios`, `outlook` |
 
 Each table and column has a description in BigQuery (hover a field in Looker Studio to see it). The other tables in the
 dataset (`forecasts_backtest`, `interval_coverage`, `resort_pairs`) are not used on the dashboard; `metrics` is only used to
@@ -97,13 +97,14 @@ sensitivity = euro nights on EUR/CHF six months earlier, covid excluded.
 
 Mockup: [`page3.png`](dashboard_mockups/page3.png)
 
-Data elements: the bar chart and two scorecards. The controls select the scenario for the bar chart only; the text line is static.
+Data elements: the bar chart and two scorecards. The controls select the scenario for the bar chart only; the caveat under the chart and the text line are static.
 
 | # | Element | Setup |
 |---|---|---|
-| Control | **Drop-down list** (Insert → Drop-down list), top left | **Data source** `fx_scenarios`; **Control field** `scenario_type`; **Default selection** `All currencies`. **Style**: **Single select** on. Label it *Scenario* |
+| Control | **Drop-down list** (Insert → Drop-down list), top left | **Data source** `fx_scenarios`; **Control field** `scenario_type`; **Default selection** `EUR only` (the project's strongest evidence is for euro markets; for the United Kingdom, FX made forecasts worse in Sprint 3). **Style**: **Single select** on. Label it *Scenario* |
 | Control | **Drop-down list**, next to it | **Data source** `fx_scenarios`; **Control field** `fx_change_pct`; **Sort** `fx_change_pct` **Ascending**; **Default selection** `-10`. **Style**: **Single select** on. Label it *Franc move now (%)*. Add a small grey text next to the controls: *Negative = stronger franc* |
 | 1 | **Bar chart** (Insert → Bar chart, horizontal), left | **Data source** `fx_scenarios`; **Dimension** `market`; **Metric** `Change vs actual rate`; **Sort** `Change vs actual rate` **Ascending**; **Default date range → Custom**: Aug 1, 2026 – Jul 31, 2027; **Filter → Add a filter**: Include `level` Equal to `canton`. **Style**: **Show data labels** on; bar colours by **Dimension value colors** (step 5 of the setup); x-axis title *Change in hotel nights, Aug 2026 - Jul 2027, vs the actual rate*. Chart title: *Nights change by market for the selected scenario* |
+| Text | **Text**, one small line under the bar chart (italic, grey, 10 px) | *Model expectation, not a causal effect; responses are not proportional to the size of the move.* |
 | 2 | **Scorecard**, right, top | **Data source** `outlook`; **Metric** `Change vs a year earlier`, renamed *Next 12 months (Aug 2026 - Jul 2027) vs a year earlier*; **Default date range → Custom**: Aug 1, 2026 – Jul 31, 2027; **Filter**: Include `level` Equal to `canton`. **Style**: **Decimal precision** 1 |
 | 3 | **Scorecard**, right, below | As scorecard 2, renamed *Winter 2026/27 (Dec - Mar) vs a year earlier*, with a second filter: Include `in_winter` Equal to `true` |
 | Text | **Text**, one line at the bottom | *Forecast error 6 months ahead (Jan 2023 - Jul 2026): 8.3% for the average of the model and "same month last year", vs 8.7% for "same month last year" alone (WAPE).* |
@@ -114,9 +115,10 @@ field; `outlook` has no `scenario_type` or `fx_change_pct`, so the scorecards al
 **Checking the text line** (optional, then delete the chart): a scorecard on `metrics` with metric `WAPE` and filters
 `window` = `post_covid`, `h` = 6 and `model` = `combo_fx` (8.3%) or `naive` (8.7%).
 
-Expected values with the default scenario (all currencies, -10%): United Kingdom -4.9%, China -4.8%, United States -3.6%,
-Germany -3.1%, France -2.7%, Italy -2.0%, Switzerland 0.0% (Swiss guests have no FX feature). With *EUR only*, only Germany,
-France and Italy move. Scorecards: **+1.1%** (25.0 m nights) and **+1.0%** (8.4 m nights).
+Expected values with the default scenario (EUR only, -10%): Germany -3.1%, France -2.7%, Italy -2.0%; Switzerland,
+United Kingdom, United States and China 0.0% (Swiss guests have no FX feature; the other three use their own currency, which
+*EUR only* does not move). With *All currencies* at -10%: United Kingdom -4.9%, China -4.8%, United States -3.6%, euro markets
+unchanged. Scorecards: **+1.1%** (25.0 m nights) and **+1.0%** (8.4 m nights).
 
 How to read a scenario (the column descriptions in BigQuery say the same):
 - A scenario means *"if the franc moves X% now"*: the exchange rate at the forecast origin (Jul 2026) is set X% away from
