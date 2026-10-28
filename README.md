@@ -1,5 +1,7 @@
 # The Strong Franc and Swiss Tourism
 
+[![tests](https://github.com/Pauulinooo/swiss-tourism-fx/actions/workflows/tests.yml/badge.svg)](https://github.com/Pauulinooo/swiss-tourism-fx/actions/workflows/tests.yml)
+
 **Forecasts monthly hotel overnight stays by canton, origin market and resort type (luxury vs mid-range) 1 to 12 months ahead, so hotels can plan seasonal pricing and seasonal staffing, and quantifies how much the Swiss franc moves that forecast.**
 
 **Tools:** Python (pandas, scikit-learn, statsmodels, ruptures), SQL (DuckDB, BigQuery), Looker Studio, Git/GitHub.
@@ -33,8 +35,10 @@
 Built with Claude Code as a pair programmer; I defined the questions, scope and methodology and reviewed every PR.
 
 ## Reproduce
+Python 3.12; `requirements.txt` pins exact versions.
 ```bash
 pip install -r requirements.txt
+pytest -q                                 # unit tests on synthetic data, a few seconds
 python src/load_data.py
 python src/build_db.py
 python src/run_experiments.py --jobs 4   # ~1 h 45 min, cached for notebooks 04-05
@@ -57,4 +61,4 @@ BFS publishes HESTA monthly, about 5-6 weeks after the end of the month.
 4. **Re-run the pipeline** with the commands above, in order. New data change the cache fingerprints, so `run_experiments.py`
    and `run_long_horizon.py` must run again before notebooks 04-05; then `python src/export_bq.py` to refresh the dashboard.
 
-More detail: [`data/README.md`](data/README.md) (sources, data quirks) and [`ROADMAP.md`](ROADMAP.md) (sprints).
+More detail: [`data/README.md`](data/README.md) (sources, data quirks) and [`ROADMAP.md`](ROADMAP.md) (sprints). License: [MIT](LICENSE).

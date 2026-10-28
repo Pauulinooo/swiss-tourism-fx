@@ -14,7 +14,8 @@ See `ROADMAP.md` for sprints and `data/README.md` for sources and data quirks. R
 - `sql/` — DuckDB SQL views, one file per view, numbered (`01_yoy.sql`, ...).
 - `notebooks/` — numbered analysis notebooks (`01_eda.ipynb`, `02_fx_effect.ipynb`, `03_forecasting.ipynb`). They import from `src/`.
 - `reports/figures/` — exported charts (PNG/SVG) used in the README.
-- `dashboard/` — flat CSV extracts for Tableau.
+- `tests/` — pytest unit tests on small synthetic data (run in CI on every push and PR).
+- The dashboard lives in Looker Studio (tables exported to BigQuery by `src/export_bq.py`); no dashboard folder in the repo.
 
 ## Data conventions (non-negotiable)
 - Tidy long format: one row = date × geo × origin × indicator. Columns: `date, geo, level, origin, indicator, value, currency`.
